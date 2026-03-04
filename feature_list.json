@@ -61,8 +61,8 @@
       "Run shell commands safely",
       "Fetch and summarize web content"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-04: Created tools/ package with FileTool, ShellTool, WebTool. FileTool supports read/write/list/delete/exists operations. ShellTool executes commands with blocked pattern safety (rm -rf /, fork bombs, etc.). WebTool fetches HTTP/HTTPS content with URL validation. ToolRegistry provides unified interface and schema export. Verification test passed: file read/write/delete works, shell echo/pwd works and dangerous commands blocked, web fetch to httpbin.org works, invalid URL schemes rejected."
   },
   {
     "id": "M1-003",

@@ -147,3 +147,63 @@ All trace entries have required fields (at, cycle, content)
 - Next: M1-002 (Core tools available: file, shell, web)
 
 ---
+
+## Session: M1-002 (2026-03-04)
+
+### Feature completed
+- **id**: M1-002
+- **description**: Core tools available: file, shell, web
+
+### Changes made
+- Created `tools/` package with structured tool infrastructure:
+  - `tools/base.py`: BaseTool abstract class, ToolSchema, ToolResult dataclasses
+  - `tools/file_tool.py`: FileTool with read/write/list/delete/exists operations
+  - `tools/shell_tool.py`: ShellTool with safety blocking for dangerous commands
+  - `tools/web_tool.py`: WebTool with HTTP/HTTPS fetch and URL validation
+  - `tools/__init__.py`: ToolRegistry and create_default_registry helper
+
+### Verification run
+```
+$ python -c "...verification script..."
+=== M1-002 VERIFICATION: Core Tools ===
+
+1. Testing Tool Registry...
+   Registered tools: ['file', 'shell', 'web']
+   [PASS] All tools registered
+
+2. Testing FileTool...
+   Write: Wrote 13 characters to E:\tmp\m1_test.txt
+   Read: Hello M1-002!
+   Exists: True
+   List /tmp: 2 items
+   Delete: Deleted file: E:\tmp\m1_test.txt
+   [PASS] FileTool works correctly
+
+3. Testing ShellTool...
+   Echo: "Shell test OK"
+   Pwd: /e/VUE_Augemnet/CLI-Mine
+   Blocked: BLOCKED: Command matches blocked pattern: rm -rf /
+   [PASS] ShellTool works correctly
+
+4. Testing WebTool...
+   Fetch httpbin.org/get: success (279 chars)
+   Invalid scheme blocked: Unsupported URL scheme: ftp
+   HEAD request: success
+   [PASS] WebTool works correctly
+
+5. Testing Tool Schemas...
+   file: has valid schema
+   shell: has valid schema
+   web: has valid schema
+   [PASS] All schemas valid
+
+=== M1-002 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M1-002 passes all verification steps.
+- ShellTool has basic blocked patterns; M2-003 will add fuller sandbox/allowlist
+- WebTool uses urllib (built-in); may want requests library for richer features later
+- Next: M1-003 (Tool schema is strict and validated)
+
+---
