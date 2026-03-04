@@ -100,8 +100,8 @@
       "Apply policy checks before risky actions",
       "Return refusal or safe alternative when needed"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-04: Created safety/ package with Constitution, PolicyRule, PolicyChecker classes. Machine-readable policy rules in safety/policies/default.json (13 rules covering shell, file, web tools). PolicyChecker.check() returns PolicyDecision with allowed, action, reason, alternative, risk_level. ToolRegistry.set_policy_checker() integrates policy checks - blocked actions return ToolResult(success=False, error='BLOCKED by policy: ...'). Audit logging supported via audit_log_path. Verification test passed all 9 checks: constitution loading, JSON serialization, shell blocking, file access blocking, URL scheme blocking, registry integration, safe commands pass, audit logging."
   },
   {
     "id": "M2-002",

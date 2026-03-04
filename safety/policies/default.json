@@ -1,0 +1,151 @@
+{
+  "name": "Claude Agent Default Constitution",
+  "version": "1.0.0",
+  "default_action": "allow",
+  "high_risk_default": "log_only",
+  "rules": [
+    {
+      "id": "block-destructive-shell",
+      "description": "Block destructive shell commands that can damage the system",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": "rm\\s+-rf\\s+(/|/\\*|~)",
+      "pattern_fields": ["command"],
+      "alternative": "Use 'rm -rf' only within specific project directories, never on root or home",
+      "priority": 1000
+    },
+    {
+      "id": "block-disk-wipe",
+      "description": "Block disk formatting and direct disk write commands",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": "(mkfs|dd\\s+if=|>\\s*/dev/sd)",
+      "pattern_fields": ["command"],
+      "alternative": "Disk operations require explicit human approval outside this agent",
+      "priority": 1000
+    },
+    {
+      "id": "block-fork-bomb",
+      "description": "Block fork bomb and resource exhaustion patterns",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": ":\\(\\)\\s*\\{\\s*:\\|:&\\s*\\};\\s*:",
+      "pattern_fields": ["command"],
+      "alternative": null,
+      "priority": 1000
+    },
+    {
+      "id": "block-permission-flood",
+      "description": "Block recursive permission changes on system directories",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": "(chmod|chown)\\s+-R\\s+.*\\s+(/|/usr|/etc|/var)",
+      "pattern_fields": ["command"],
+      "alternative": "Limit recursive permission changes to project directories only",
+      "priority": 900
+    },
+    {
+      "id": "block-remote-exec",
+      "description": "Block piping remote content directly to shell",
+      "risk_level": "high",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": "(wget|curl)\\s+[^|]*\\|\\s*(sh|bash|zsh)",
+      "pattern_fields": ["command"],
+      "alternative": "Download the file first, review it, then execute if safe",
+      "priority": 800
+    },
+    {
+      "id": "block-env-destruction",
+      "description": "Block operations that destroy environment state",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "shell",
+      "pattern": "(rm\\s+-rf\\s+/proc|rm\\s+-rf\\s+/sys)",
+      "pattern_fields": ["command"],
+      "alternative": null,
+      "priority": 1000
+    },
+    {
+      "id": "confirm-system-files",
+      "description": "Require confirmation for modifying system configuration",
+      "risk_level": "high",
+      "action": "confirm",
+      "tool_name": "file",
+      "pattern": "^/(etc|usr|var|boot)/",
+      "pattern_fields": ["path"],
+      "alternative": "Consider modifying user-level configuration instead",
+      "priority": 700
+    },
+    {
+      "id": "block-ssh-keys",
+      "description": "Block access to SSH private keys",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "file",
+      "pattern": "(id_rsa|id_dsa|id_ecdsa|id_ed25519)$",
+      "pattern_fields": ["path"],
+      "alternative": "Use SSH agent or environment variables for authentication",
+      "priority": 950
+    },
+    {
+      "id": "block-credentials",
+      "description": "Block access to credential files",
+      "risk_level": "critical",
+      "action": "block",
+      "tool_name": "file",
+      "pattern": "(\\.pem|\\.key|credentials|\\.htpasswd|_rsa|_private)",
+      "pattern_fields": ["path"],
+      "alternative": "Use environment variables or secure secret management",
+      "priority": 950
+    },
+    {
+      "id": "confirm-network-write",
+      "description": "Log operations that could expose data externally",
+      "risk_level": "medium",
+      "action": "log_only",
+      "tool_name": "web",
+      "pattern": "^(http|https)://",
+      "pattern_fields": ["url"],
+      "alternative": null,
+      "priority": 500
+    },
+    {
+      "id": "block-local-network-scan",
+      "description": "Block scanning of internal network infrastructure",
+      "risk_level": "high",
+      "action": "block",
+      "tool_name": "web",
+      "pattern": "(192\\.168\\.|10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|localhost|127\\.)",
+      "pattern_fields": ["url"],
+      "alternative": "Network scanning requires explicit authorization",
+      "priority": 800
+    },
+    {
+      "id": "block-non-http",
+      "description": "Block non-HTTP(S) URL schemes",
+      "risk_level": "high",
+      "action": "block",
+      "tool_name": "web",
+      "pattern": "^(file|ftp|javascript|data|vbscript):",
+      "pattern_fields": ["url"],
+      "alternative": "Only HTTP and HTTPS protocols are supported",
+      "priority": 900
+    },
+    {
+      "id": "degrade-wildcard-delete",
+      "description": "Degrade wildcard delete operations for safety",
+      "risk_level": "medium",
+      "action": "degrade",
+      "tool_name": "shell",
+      "pattern": "rm\\s+.*\\*",
+      "pattern_fields": ["command"],
+      "alternative": "List files first with 'ls' before deleting",
+      "priority": 600
+    }
+  ]
+}

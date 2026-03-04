@@ -19,21 +19,36 @@ Usage:
 
     # Execute a tool
     result = registry.execute("file", {"operation": "read", "path": "/tmp/test.txt"})
+
+    # With constitutional safety policy (M2-001):
+    from safety import Constitution, PolicyChecker
+
+    constitution = Constitution.from_yaml("safety/policies/default.json")
+    registry.set_policy_checker(PolicyChecker(constitution))
+
+    # Now all executions are checked against the constitution
+    result = registry.execute("shell", {"command": "rm -rf /"})
+    # Returns: ToolResult(success=False, error="BLOCKED by policy: ...")
 """
 
-from typing import Any, Dict, List, Optional, Type
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Type, TYPE_CHECKING
 
 from .base import BaseTool, ToolResult, ToolSchema, SchemaValidator, ValidationError
 from .file_tool import FileTool
 from .shell_tool import ShellTool
 from .web_tool import WebTool
 
+if TYPE_CHECKING:
+    from safety import PolicyChecker, PolicyDecision
+
 
 class ToolRegistry:
     """Registry for managing and executing tools."""
 
-    def __init__(self):
+    def __init__(self, policy_checker: Optional["PolicyChecker"] = None):
         self._tools: Dict[str, BaseTool] = {}
+        self._policy_checker: Optional["PolicyChecker"] = policy_checker
 
     def register(self, tool: BaseTool) -> None:
         """Register a tool instance."""
@@ -66,11 +81,30 @@ class ToolRegistry:
         """List all registered tool names."""
         return list(self._tools.keys())
 
+    def set_policy_checker(self, checker: Optional["PolicyChecker"]) -> None:
+        """Set or clear the policy checker for this registry.
+
+        When set, all tool executions will be checked against the constitutional
+        policy before being executed.
+
+        Args:
+            checker: PolicyChecker instance or None to disable policy checking
+        """
+        self._policy_checker = checker
+
+    def get_policy_checker(self) -> Optional["PolicyChecker"]:
+        """Get the current policy checker, if any."""
+        return self._policy_checker
+
     def execute(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
         """Execute a tool by name with given arguments.
 
         Arguments are validated against the tool's schema before execution.
-        Validation errors are returned as ToolResult with success=False.
+        If a policy checker is set, the action is also checked against the
+        constitutional policy before execution.
+
+        Validation errors and policy violations are returned as ToolResult
+        with success=False.
         """
         tool = self.get(name)
         if not tool:
@@ -89,6 +123,23 @@ class ToolRegistry:
                 error=f"Validation failed: {'; '.join(errors)}",
             )
 
+        # Check constitutional policy (M2-001)
+        if self._policy_checker:
+            decision = self._policy_checker.check(name, arguments)
+            if not decision.allowed:
+                error_msg = f"BLOCKED by policy: {decision.reason}"
+                if decision.alternative:
+                    error_msg += f"\nSuggested alternative: {decision.alternative}"
+                return ToolResult(
+                    success=False,
+                    output="",
+                    error=error_msg,
+                    metadata={
+                        "policy_decision": decision.to_dict(),
+                        "blocked": True,
+                    },
+                )
+
         return tool.execute(**arguments)
 
     def __contains__(self, name: str) -> bool:
@@ -102,6 +153,7 @@ def create_default_registry(
     allowed_dir: Optional[str] = None,
     shell_timeout: int = 60,
     web_timeout: int = 30,
+    constitution_path: Optional[str] = None,
 ) -> ToolRegistry:
     """Create a registry with default tools registered.
 
@@ -109,6 +161,7 @@ def create_default_registry(
         allowed_dir: Optional directory to restrict shell operations to
         shell_timeout: Default timeout for shell commands
         web_timeout: Default timeout for web requests
+        constitution_path: Optional path to constitution file for policy checking
 
     Returns:
         Configured ToolRegistry instance
@@ -124,6 +177,18 @@ def create_default_registry(
         )
     )
     registry.register(WebTool(default_timeout=web_timeout))
+
+    # Load constitution if path provided (M2-001)
+    if constitution_path:
+        try:
+            from safety import Constitution, PolicyChecker
+            constitution = Constitution.from_yaml(Path(constitution_path))
+            registry.set_policy_checker(PolicyChecker(constitution))
+        except Exception as e:
+            # Log warning but don't fail - registry still works without policy
+            import warnings
+            warnings.warn(f"Failed to load constitution from {constitution_path}: {e}")
+
     return registry
 
 

@@ -255,3 +255,62 @@ $ python -c "...verification..."
 - Next: M1-004 (Tool failure retry and fallback policy)
 
 ---
+
+## Session: M2-001 (2026-03-04)
+
+### Feature completed
+- **id**: M2-001
+- **description**: Constitutional safety policy integrated
+
+### Changes made
+- Created `safety/` package with constitutional policy system:
+  - `safety/policy.py`: PolicyRule, PolicyAction, RiskLevel, Constitution classes
+  - `safety/checker.py`: PolicyChecker with check(), assess_risk(), get_safe_alternative()
+  - `safety/policies/default.json`: 13 machine-readable policy rules
+- Policy rules support: id, description, risk_level, action (allow/block/confirm/degrade/log_only), tool_name, pattern, pattern_fields, alternative, priority
+- PolicyChecker evaluates actions against constitution and returns PolicyDecision with allowed, action, reason, alternative, risk_level
+- Integrated with ToolRegistry via set_policy_checker() - blocked actions return ToolResult with error explaining why and suggesting alternatives
+- Audit logging supported via audit_log_path parameter
+
+### Verification run
+```
+$ python -c "...verification..."
+=== M2-001 VERIFICATION: Constitutional Safety Policy ===
+
+1. Testing: Constitution can be loaded from file...
+   [PASS] Constitution loaded successfully
+
+2. Testing: Policy rules are machine-readable...
+   [PASS] Rules serialize to JSON correctly
+
+3. Testing: PolicyChecker evaluates risky actions...
+   [PASS] Destructive command blocked
+
+4. Testing: Safe alternatives are provided...
+   [PASS] Safe alternative provided
+
+5. Testing: Sensitive file access is blocked...
+   [PASS] Sensitive file access blocked
+
+6. Testing: Non-HTTP URL schemes are blocked...
+   [PASS] Non-HTTP schemes blocked
+
+7. Testing: ToolRegistry integration with policy...
+   [PASS] ToolRegistry blocks via policy checker
+
+8. Testing: Allowed commands pass through...
+   [PASS] Safe commands execute normally
+
+9. Testing: Audit logging...
+   [PASS] Audit logging works
+
+=== M2-001 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M2-001 passes all verification steps.
+- M2-002 can build on this for risk classification in user requests
+- M2-003 can extend policy rules for more granular sandbox controls
+- Next: M2-002 (Risk classification for user requests)
+
+---
