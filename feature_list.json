@@ -217,8 +217,8 @@
       "Scheduler picks highest priority pending task",
       "Queue state survives restart"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-05: Created queue/ package with comprehensive priority-based task scheduling. queue/models.py defines TaskStatus (PENDING/RUNNING/COMPLETED/FAILED/BLOCKED/CANCELLED), TaskPriority (CRITICAL/HIGH/MEDIUM/LOW/BACKGROUND), Task dataclass with serialization. queue/persistence.py provides QueuePersistence with atomic file writes, queue/index storage, task history logging, export/import. queue/scheduler.py provides TaskScheduler with pick_next() (picks highest priority with satisfied dependencies), add_task(), start/complete/fail/block/cancel operations, sync_from_features(), recover_running_tasks(). Verification test passed all 24 checks: priority ordering, status transitions, scheduler picks highest priority, dependency handling, persistence across restart, running task recovery, retry logic, export/import, list filtering."
   },
   {
     "id": "M4-003",

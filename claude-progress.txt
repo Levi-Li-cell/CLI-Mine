@@ -685,3 +685,68 @@ $ python verify_m3_003.py
 - Next: M3-001 (Claude-like chat UI with streaming responses) or M3-004 (Code/artifact viewer with syntax highlighting)
 
 ---
+
+## Session: M4-002 (2026-03-05)
+
+### Feature completed
+- **id**: M4-002
+- **description**: Task queue with priority scheduling
+
+### Changes made
+- Created `queue/` package with comprehensive priority-based task scheduling:
+  - `queue/models.py`: TaskStatus enum (PENDING/RUNNING/COMPLETED/FAILED/BLOCKED/CANCELLED), TaskPriority enum (CRITICAL/HIGH/MEDIUM/LOW/BACKGROUND), Task dataclass with serialization, QueueStats dataclass
+  - `queue/persistence.py`: QueuePersistence class with atomic file writes, queue/index storage, task history logging (JSONL), export/import, clear_completed
+  - `queue/scheduler.py`: TaskScheduler with add_task(), add_task_from_feature(), pick_next() (picks highest priority with satisfied dependencies), start/complete/fail/block/cancel operations, list_tasks() with filtering, sync_from_features(), recover_running_tasks()
+  - `queue/__init__.py`: Package exports and create_default_scheduler() convenience function
+- Task model supports: priority, status, attempts, max_attempts, dependencies, metadata
+- Persistence: atomic writes via temp file + rename, index for fast lookups, history log for audit trail
+- Scheduler: priority-ordered picking, dependency checking, retry logic, crash recovery
+
+### Verification run
+```
+$ python verify_m4_002.py
+=== M4-002 VERIFICATION: Task Queue with Priority Scheduling ===
+
+1. Testing: Queue supports priority and status...
+   [PASS] Task status is PENDING
+   [PASS] Priority values are correctly ordered
+   [PASS] Task status transitions to RUNNING on start
+   [PASS] Task status transitions to COMPLETED
+   [PASS] Failed task with retries goes back to PENDING
+   [PASS] Task can be marked as BLOCKED
+   [PASS] Queue stats correct: total=3, completed=1, blocked=1
+
+2. Testing: Scheduler picks highest priority pending task...
+   [PASS] Picks CRITICAL priority task first
+   [PASS] Picks HIGH priority task next
+   [PASS] Picks MEDIUM priority task next
+   [PASS] Picks LOW priority task last
+   [PASS] Task with dependencies waits
+   [PASS] Waiting task picked after dependency completes
+
+3. Testing: Queue state survives restart...
+   [PASS] Tasks persist after restart
+   [PASS] Running task state persists
+   [PASS] Running tasks recovered to PENDING
+   [PASS] Queue file persists to disk
+   [PASS] Index file persists to disk
+   [PASS] Task history log persists to disk
+
+4. Testing: Additional features...
+   [PASS] sync_from_features skips passed features
+   [PASS] TaskPriority.from_string works correctly
+   [PASS] Task retries on first failure
+   [PASS] Task marked FAILED after max attempts
+   [PASS] Queue export works
+   [PASS] list_tasks filters by priority
+   [PASS] create_default_scheduler works
+
+=== M4-002 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M4-002 passes all verification steps.
+- Queue can be integrated with harness.py to replace the simple pick_next_feature() function
+- Next: M4-003 (Multi-agent roles: coder, tester, reviewer) or M4-004 (Health checks and alerting)
+
+---
