@@ -74,8 +74,8 @@
       "Invalid args are rejected",
       "Validation errors are returned clearly"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-04: Implemented SchemaValidator class in tools/base.py with full JSON Schema-like validation (type, enum, min/max, minLength/maxLength). All three tools (file, shell, web) have valid schemas with properties and required fields. Validation tests: missing required params rejected, wrong types rejected, invalid enum values rejected, multiple errors reported clearly in single message. ToolRegistry.execute validates args before dispatch."
   },
   {
     "id": "M1-004",

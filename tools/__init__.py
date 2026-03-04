@@ -23,7 +23,7 @@ Usage:
 
 from typing import Any, Dict, List, Optional, Type
 
-from .base import BaseTool, ToolResult, ToolSchema
+from .base import BaseTool, ToolResult, ToolSchema, SchemaValidator, ValidationError
 from .file_tool import FileTool
 from .shell_tool import ShellTool
 from .web_tool import WebTool
@@ -67,7 +67,11 @@ class ToolRegistry:
         return list(self._tools.keys())
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
-        """Execute a tool by name with given arguments."""
+        """Execute a tool by name with given arguments.
+
+        Arguments are validated against the tool's schema before execution.
+        Validation errors are returned as ToolResult with success=False.
+        """
         tool = self.get(name)
         if not tool:
             return ToolResult(
@@ -75,7 +79,17 @@ class ToolRegistry:
                 output="",
                 error=f"Unknown tool: {name}. Available: {', '.join(self.list_tools())}",
             )
-        return tool(**arguments)
+
+        # Validate arguments against schema
+        errors = SchemaValidator.validate(arguments, tool.schema)
+        if errors:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Validation failed: {'; '.join(errors)}",
+            )
+
+        return tool.execute(**arguments)
 
     def __contains__(self, name: str) -> bool:
         return name in self._tools
@@ -118,6 +132,8 @@ __all__ = [
     "ToolSchema",
     "ToolResult",
     "ToolRegistry",
+    "SchemaValidator",
+    "ValidationError",
     "FileTool",
     "ShellTool",
     "WebTool",

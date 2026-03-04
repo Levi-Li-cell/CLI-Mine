@@ -207,3 +207,51 @@ $ python -c "...verification script..."
 - Next: M1-003 (Tool schema is strict and validated)
 
 ---
+
+## Session: M1-003 (2026-03-04)
+
+### Feature completed
+- **id**: M1-003
+- **description**: Tool schema is strict and validated
+
+### Changes made
+- Added `SchemaValidator` class in `tools/base.py` with full JSON Schema-like validation:
+  - Type checking (string, integer, number, boolean, array, object)
+  - Enum constraint validation
+  - Numeric min/max constraints
+  - String minLength/maxLength constraints
+  - Required parameter validation
+  - Unknown parameter detection (when additionalProperties=false)
+- Updated `BaseTool.validate_args()` to use `SchemaValidator`
+- Updated `ToolRegistry.execute()` to validate arguments before dispatch
+- Added `ValidationError` exception class
+
+### Verification run
+```
+$ python -c "...verification..."
+=== M1-003 VERIFICATION: Tool Schema Validation ===
+
+1. Testing: Every tool has input schema...
+   [OK] file: schema with params ['operation', 'path', 'content', 'encoding', 'recursive']
+   [OK] shell: schema with params ['command', 'timeout', 'cwd', 'check']
+   [OK] web: schema with params ['operation', 'url', 'timeout', 'max_length', 'headers']
+   [PASS] All tools have valid input schemas
+
+2. Testing: Invalid args are rejected...
+   [PASS] Missing required param rejected
+   [PASS] Wrong type rejected
+   [PASS] Invalid enum value rejected
+
+3. Testing: Validation errors are returned clearly...
+   [PASS] Clear multi-error message: Validation failed: Missing required parameter: 'path'; Parameter 'operation' has wrong type...
+   [PASS] Valid args execute successfully
+
+=== M1-003 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M1-003 passes all verification steps.
+- ShellTool timeout has no minimum constraint (negative values caught by tool logic, not schema)
+- Next: M1-004 (Tool failure retry and fallback policy)
+
+---
