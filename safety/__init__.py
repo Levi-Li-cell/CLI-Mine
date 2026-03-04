@@ -5,14 +5,15 @@ This module implements Constitutional AI principles:
 - Machine-readable policy rules
 - Policy checks before risky actions
 - Refusal or safe alternatives when needed
+- Request-level risk classification
 
 Usage:
-    from safety import Constitution, PolicyChecker, PolicyDecision
+    from safety import Constitution, PolicyChecker, RequestClassifier
 
     # Load constitution from file
     constitution = Constitution.from_yaml("safety/policies/default.yaml")
 
-    # Check an action
+    # Check a tool action
     checker = PolicyChecker(constitution)
     decision = checker.check("shell", {"command": "rm -rf /"})
 
@@ -24,6 +25,13 @@ Usage:
         print(f"Refused: {decision.reason}")
         if decision.alternative:
             print(f"Suggested alternative: {decision.alternative}")
+
+    # Classify a user request
+    classifier = RequestClassifier()
+    req_decision = classifier.classify("delete all files on the server")
+
+    if not req_decision.allowed:
+        print(f"Request blocked: {req_decision.reasons}")
 """
 
 from .policy import (
@@ -36,6 +44,12 @@ from .checker import (
     PolicyDecision,
     PolicyChecker,
 )
+from .classifier import (
+    RiskCategory,
+    RiskPattern,
+    RequestDecision,
+    RequestClassifier,
+)
 
 __all__ = [
     "PolicyRule",
@@ -44,4 +58,8 @@ __all__ = [
     "Constitution",
     "PolicyDecision",
     "PolicyChecker",
+    "RiskCategory",
+    "RiskPattern",
+    "RequestDecision",
+    "RequestClassifier",
 ]

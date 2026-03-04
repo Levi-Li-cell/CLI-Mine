@@ -314,3 +314,63 @@ $ python -c "...verification..."
 - Next: M2-002 (Risk classification for user requests)
 
 ---
+
+## Session: M2-002 (2026-03-04)
+
+### Feature completed
+- **id**: M2-002
+- **description**: Risk classification for user requests
+
+### Changes made
+- Created `safety/classifier.py` with request-level risk classification:
+  - `RequestClassifier` class for analyzing user text before tool execution
+  - `RequestDecision` dataclass for classification results
+  - `RiskCategory` enum for categorizing risk types (8 categories)
+  - `RiskPattern` class for defining detection patterns
+- Implemented 9 default risk patterns:
+  - CRITICAL: system destruction, data exfiltration, credential access
+  - HIGH: security bypass, privilege escalation, network attacks, arbitrary execution
+  - MEDIUM: sensitive file access, unsafe operations
+- Gating behavior:
+  - CRITICAL requests always blocked
+  - HIGH requests blocked unless confirmation callback returns True
+  - MEDIUM/LOW requests allowed (logged)
+- Audit logging via `audit_log_path` parameter
+- Updated `safety/__init__.py` to export new classes
+
+### Verification run
+```
+$ python -c "...verification..."
+=== M2-002 VERIFICATION: Risk Classification for User Requests ===
+
+1. Testing: Imports work correctly...
+   [PASS] All classes imported successfully
+2. Testing: Low risk classification...
+   [PASS] Low risk requests classified correctly
+3. Testing: Medium risk classification...
+   [PASS] Medium risk requests classified correctly (2 found)
+4. Testing: High risk classification...
+   [PASS] High risk requests classified correctly (4 found)
+5. Testing: Critical risk classification...
+   [PASS] Critical risk requests classified correctly (4 found)
+6. Testing: High-risk gating (blocking)...
+   [PASS] Critical risk request is blocked
+   [PASS] High risk request is blocked (no confirm handler)
+7. Testing: High-risk with confirmation callback...
+   [PASS] High risk allowed after confirmation callback
+8. Testing: Audit logging...
+   [PASS] Audit logging works (3 entries logged)
+9. Testing: gate_request convenience method...
+   [PASS] gate_request works correctly
+10. Testing: get_risk_summary method...
+   [PASS] get_risk_summary provides readable output
+
+=== M2-002 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M2-002 passes all verification steps.
+- Pattern matching uses regex and keywords - could be enhanced with ML-based classification later
+- Next: M2-003 (Sandbox and allowlist for destructive commands) or M2-004 (End-to-end audit logging with trace IDs)
+
+---
