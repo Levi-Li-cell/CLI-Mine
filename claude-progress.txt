@@ -2,45 +2,68 @@
 
 ## Session: INIT (2026-03-04)
 
-### Initialization Completed
+### Initialization summary
 
-**Created files:**
-1. `init.sh` - Environment initialization script with:
-   - Python/Git availability checks
-   - Required file verification
-   - Directory structure setup (.agent/runtime, .agent/prompts, .agent/logs)
-   - Smoke test for harness.py
+- Bootstrap artifacts created: `init.sh`, `feature_list.json`, `claude-progress.txt`
+- Runtime directories ready: `.agent/runtime`, `.agent/prompts`, `.agent/logs`
+- Harness prompt scaffolding active for initializer and coding sessions
 
-2. `feature_list.json` - Comprehensive feature breakdown with 32 features:
-   - M0 (Baseline): 3 features - Harness bootstrap, continuous loop, file tracking
-   - M1 (Core Agent): 8 features - ReAct loop, tools (shell/file/web), retry, error handling
-   - M2 (Safety): 4 features - Constitutional AI, risk detection, audit logs, sandbox
-   - M3 (UI): 5 features - Chat interface, sessions, streaming, tool visualization
-   - M4 (Automation): 5 features - Recovery, task queue, multi-agent collaboration
-   - M5 (Production): 5 features - Load testing, stability, cost, regression, deployment
-   - Supporting: 2 memory features, 1 MCP integration
+### Research-driven replan (2026-03-04)
 
-**Project structure:**
+Reviewed sources and extracted practical architecture requirements:
+
+- Anthropic long-running harness pattern:
+  - separate initializer and coding sessions
+  - externalized session handoff via progress + feature files + git
+  - strict incremental delivery (one feature per cycle)
+- Constitutional AI:
+  - policy-first safety layer for risky tasks
+  - refusal/degrade/explain behavior for disallowed intents
+- ReAct paper:
+  - keep explicit reason-act-observe loops
+  - use tools for factual grounding and lower hallucination risk
+- Function/tool calling docs (OpenAI + Anthropic):
+  - strict schemas, strong parameter descriptions, predictable tool loops
+  - robust tool error handling and bounded retries
+- LangChain agents docs:
+  - graph-style runtime with middleware for dynamic models/tools and guardrails
+
+### Operational notes
+
+- Temporary repository `shareAI-lab/learn-claude-code` was cloned for study and removed afterward per request.
+- Current project goal and feature list were rewritten to match the new milestones M0-M5.
+
+### Next step
+
+- Execute M0-001 to finish stable bootstrap flow and produce `initializer.done` deterministically.
+
+---
+
+## Session: M0-001 (2026-03-04)
+
+### Feature completed
+- **id**: M0-001
+- **description**: Harness bootstrap can complete and leave initializer marker
+
+### Changes made
+- Verified `python harness.py --bootstrap` runs without errors
+- Confirmed all required artifacts exist: `init.sh`, `feature_list.json`, `claude-progress.txt`
+- Confirmed `.agent/runtime/initializer.done` marker exists with timestamp
+
+### Verification run
 ```
-CLI-Mine/
-├── .agent/
-│   ├── logs/           # Agent execution logs
-│   ├── prompts/        # Session prompt files
-│   └── runtime/        # Runtime state (harness.log, initializer.done)
-├── prompts/
-│   ├── initializer_prompt.md
-│   └── coding_prompt.md
-├── config.json         # Harness configuration
-├── harness.py          # Main harness script
-├── init.sh             # Environment init script
-├── feature_list.json   # Feature breakdown
-├── claude-progress.txt # This file
-└── project_goal.md     # Project objectives
+$ python harness.py --bootstrap
+(no output, exit code 0)
+
+$ ls -la init.sh feature_list.json claude-progress.txt .agent/runtime/initializer.done
+-rw-r--r-- 1 Administrator 197121   26 Mar  4 17:34 .agent/runtime/initializer.done
+-rw-r--r-- 1 Administrator 197121 1538 Mar  4 17:39 claude-progress.txt
+-rw-r--r-- 1 Administrator 197121 7636 Mar  4 17:38 feature_list.json
+-rwxr-xr-x 1 Administrator 197121 2312 Mar  4 17:30 init.sh
 ```
 
-**Next session should:**
-- Run init.sh to verify environment
-- Pick M0-001 (Harness bootstrap flow) as first feature
-- Implement and verify end-to-end bootstrap functionality
+### Risks/follow-ups
+- None. M0-001 passes all verification steps.
+- Next: M0-002 (Single cycle run works and writes logs)
 
 ---
