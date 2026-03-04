@@ -498,3 +498,57 @@ $ python verify_m2_003.py
 - Next: M2-004 (End-to-end audit logging with trace IDs)
 
 ---
+
+## Session: M2-004 (2026-03-05)
+
+### Feature completed
+- **id**: M2-004
+- **description**: End-to-end audit logging with trace IDs
+
+### Changes made
+- Created `audit/` package with comprehensive trace logging system:
+  - `audit/events.py`: EventType enum (TRACE_START, TRACE_END, MODEL_CALL, MODEL_RESPONSE, TOOL_CALL, TOOL_RESULT, POLICY_DECISION, RETRY_ATTEMPT, RESULT) and dataclasses for each event type with TraceContext for trace metadata
+  - `audit/logger.py`: AuditLogger class with thread-safe logging, sequence numbering, duration calculation, start_trace(), end_trace(), log_model_call(), log_model_response(), log_tool_call(), log_tool_result(), log_policy_decision(), log_retry(), log_result() methods
+  - `audit/replay.py`: AuditReplay class for trace analysis with list_traces(), get_trace_summary(), replay_trace(), find_traces_by_feature(), find_traces_by_status(), find_traces_with_errors(), get_statistics(), export_trace(), export_summary() methods
+- Updated `audit/__init__.py` to export all event classes (ModelResponseEvent, ToolResultEvent added)
+- Fixed `export_trace()` to write single-line JSON for JSONL compatibility
+- harness.py already integrated: get_audit_logger(), start_trace() per cycle, log_model_call/response, end_trace()
+
+### Verification run
+```
+$ python verify_m2_004.py
+=== M2-004 VERIFICATION: End-to-end Audit Logging with Trace IDs ===
+
+1. Testing: Imports work correctly...
+   [PASS] All audit classes imported successfully
+2. Testing: trace_id generation per task...
+   [PASS] Unique trace_id generated per task
+3. Testing: Link model, tool, and result events...
+   [PASS] All 8 events linked by trace_id
+   [PASS] call_id links tool_call and tool_result
+4. Testing: Support replay from logs...
+   [PASS] Found 3 traces in log
+   [PASS] Trace summary retrieved: 8 events
+   [PASS] Replay returned 8 steps
+5. Testing: Find traces by feature...
+   [PASS] Found 1 traces for feature M2-004
+6. Testing: Find traces by status...
+   [PASS] Found 3 successful traces
+7. Testing: Get statistics...
+   [PASS] Statistics: 3 traces, 12 events
+8. Testing: Export functionality...
+   [PASS] Exported 8 events to exported_trace.json
+9. Testing: Sequence ordering...
+   [PASS] Events properly ordered by sequence
+10. Testing: Duration calculation...
+   [PASS] Duration calculated: 3ms
+
+=== M2-004 VERIFICATION PASSED (10/10) ===
+```
+
+### Risks/follow-ups
+- None. M2-004 passes all verification steps.
+- All M2 features (safety & alignment) are now complete
+- Next: M3-001 (Claude-like chat UI with streaming responses)
+
+---
