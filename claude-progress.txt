@@ -552,3 +552,136 @@ $ python verify_m2_004.py
 - Next: M3-001 (Claude-like chat UI with streaming responses)
 
 ---
+
+## Session: M3-002 (2026-03-05)
+
+### Feature completed
+- **id**: M3-002
+- **description**: Conversation list and session restore
+
+### Changes made
+- Created `sessions/` package with comprehensive conversation management:
+  - `sessions/models.py`: Session, Message, MessageRole, MessageStatus, ToolCall dataclasses with full serialization
+  - `sessions/persistence.py`: SessionPersistence class with atomic file writes, session index, export/import
+  - `sessions/manager.py`: SessionManager with high-level API for session CRUD, message management, restore functionality
+- Sessions stored as individual JSON files in `.agent/sessions/` directory
+- Session index (`index.json`) provides fast listing without loading all sessions
+- Supports: create/switch/list/delete/archive sessions, add messages, search, export/import, restore after restart
+
+### Verification run
+```
+$ python verify_m3_002.py
+=== M3-002 VERIFICATION: Conversation List and Session Restore ===
+
+1. Testing: Imports work correctly...
+   [PASS] All classes imported successfully
+2. Testing: Create conversations...
+   [PASS] Create first conversation
+   [PASS] Create second conversation without switching
+3. Testing: Switch conversations...
+   [PASS] Switch to second conversation
+   [PASS] Switch back to first conversation
+4. Testing: Add and persist messages...
+   [PASS] Add user message
+   [PASS] Add assistant message
+   [PASS] Messages stored in session
+5. Testing: Message persistence to disk...
+   [PASS] Session file created on disk
+   [PASS] Messages persisted correctly to disk
+6. Testing: Session list functionality...
+   [PASS] List all sessions
+   [PASS] Filter sessions by feature_id
+7. Testing: Restore after restart...
+   [PASS] Restore last session after restart
+   [PASS] Messages preserved after restore
+8. Testing: Restore session by feature ID...
+   [PASS] Restore session by feature_id
+9. Testing: Message history for API...
+   [PASS] Get message history in API format
+10. Testing: Search sessions...
+   [PASS] Search sessions by message content
+11. Testing: Tool calls in messages...
+   [PASS] Tool calls serialize/deserialize correctly
+12. Testing: Session export/import...
+   [PASS] Export session to file
+   [PASS] Import session with new ID
+
+=== M3-002 VERIFICATION PASSED (12/12) ===
+```
+
+### Risks/follow-ups
+- None. M3-002 passes all verification steps.
+- SessionManager can be integrated with harness.py to track coding sessions
+- Next: M3-001 (Claude-like chat UI with streaming responses) or M3-003 (Tool execution visualization)
+
+---
+
+## Session: M3-003 (2026-03-05)
+
+### Feature completed
+- **id**: M3-003
+- **description**: Tool execution visualization
+
+### Changes made
+- Created `visualization/` package with comprehensive tool execution visualization:
+  - `visualization/models.py`: Existing file with ToolStatus, Severity, RetryInfo, ArgumentDisplay, ToolExecutionView, ToolExecutionSummary dataclasses
+  - `visualization/builder.py`: ToolExecutionBuilder class for building views from tool results and audit events, with argument formatting, sensitive data masking, output truncation, status/severity determination
+  - `visualization/renderer.py`: ToolExecutionRenderer class with ANSI color support, status icons, compact/full rendering modes, retry display, error/blocked info display
+  - `visualization/__init__.py`: Package exports and convenience functions (build_tool_view, render_tool_execution, render_tool_compact)
+- Builder supports: build_from_result(), build_from_audit_events(), build_summary()
+- Renderer supports: render(), render_compact(), render_summary(), render_list()
+- Sensitive argument masking for: password, token, api_key, secret, credential, etc.
+
+### Verification run
+```
+$ python verify_m3_003.py
+=== M3-003 VERIFICATION: Tool Execution Visualization ===
+
+1. Testing: Imports work correctly...
+   [PASS] All visualization classes imported successfully
+2. Testing: Show called tool and arguments...
+   [PASS] Tool name displayed correctly
+   [PASS] Arguments displayed correctly
+   [PASS] Numeric arguments formatted correctly
+   [PASS] Sensitive arguments masked correctly
+   [PASS] Compact format works correctly
+3. Testing: Show execution status and output...
+   [PASS] Success status displayed correctly
+   [PASS] Output displayed correctly
+   [PASS] Latency displayed correctly
+   [PASS] Error status displayed correctly
+   [PASS] Error message displayed correctly
+   [PASS] Blocked status displayed correctly
+   [PASS] Alternative suggestion displayed correctly
+   [PASS] Output truncation detected correctly
+   [PASS] Summary total count correct
+   [PASS] Summary success count correct
+   [PASS] Summary failure count correct
+4. Testing: Display retries and failures...
+   [PASS] Retry information displayed correctly
+   [PASS] Retry attempt numbers displayed correctly
+   [PASS] Retry error message displayed correctly
+   [PASS] Total attempts displayed correctly
+   [PASS] Retry indicator in compact view
+   [PASS] Failed status after retries displayed correctly
+   [PASS] Call ID preserved from audit event
+   [PASS] Tool name preserved from audit event
+   [PASS] Retries built from audit events correctly
+5. Testing: Convenience functions...
+   [PASS] build_tool_view works correctly
+   [PASS] render_tool_execution works correctly
+   [PASS] render_tool_compact works correctly
+6. Testing: Render list of executions...
+   [PASS] Tool names in compact list output
+   [PASS] All tools in list output
+   [PASS] List numbering correct
+
+=== M3-003 VERIFICATION PASSED (6/6) ===
+```
+
+### Risks/follow-ups
+- None. M3-003 passes all verification steps.
+- Visualization can be integrated with harness.py to display tool executions in real-time
+- Next: M3-001 (Claude-like chat UI with streaming responses) or M3-004 (Code/artifact viewer with syntax highlighting)
+
+---
