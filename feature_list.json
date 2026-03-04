@@ -1,0 +1,434 @@
+[
+  {
+    "id": "M0-001",
+    "priority": "P0",
+    "category": "functional",
+    "description": "Harness bootstrap flow works end-to-end",
+    "steps": [
+      "Run 'python harness.py --bootstrap' from project root",
+      "Verify init.sh is created and executable",
+      "Verify feature_list.json is created with valid JSON",
+      "Verify claude-progress.txt is created with init entry",
+      "Verify .agent/runtime/initializer.done marker is created"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M0-002",
+    "priority": "P0",
+    "category": "functional",
+    "description": "Harness continuous loop mode runs without crashing",
+    "steps": [
+      "Run 'python harness.py --run-forever --cycles 2' (limited cycles for test)",
+      "Verify harness executes at least one coding cycle",
+      "Verify logs are written to .agent/logs/",
+      "Verify harness.log entries are created in .agent/runtime/"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M0-003",
+    "priority": "P0",
+    "category": "functional",
+    "description": "Feature list and progress files are valid and tracked by git",
+    "steps": [
+      "Verify feature_list.json is valid JSON array",
+      "Verify claude-progress.txt exists and is readable",
+      "Run 'git status' to confirm files are tracked"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-001",
+    "priority": "P0",
+    "category": "functional",
+    "description": "ReAct main loop implementation - Think step",
+    "steps": [
+      "Agent receives a task and produces a thought/reasoning before any action",
+      "Thought is logged or observable in output",
+      "Agent does not execute tools without reasoning first"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-002",
+    "priority": "P0",
+    "category": "functional",
+    "description": "ReAct main loop implementation - Act step",
+    "steps": [
+      "Agent can invoke a tool after reasoning",
+      "Tool call includes proper parameters matching schema",
+      "Tool result is captured for observation"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-003",
+    "priority": "P0",
+    "category": "functional",
+    "description": "ReAct main loop implementation - Observe step",
+    "steps": [
+      "Agent receives and processes tool execution results",
+      "Observation influences next thought/action",
+      "Errors in tool execution are visible to agent"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-004",
+    "priority": "P0",
+    "category": "functional",
+    "description": "Shell tool - Execute shell commands",
+    "steps": [
+      "Agent can run basic shell commands (ls, pwd, echo)",
+      "Command output is returned to agent",
+      "Command errors are captured and reported"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-005",
+    "priority": "P0",
+    "category": "functional",
+    "description": "File tool - Read and write files",
+    "steps": [
+      "Agent can read file contents",
+      "Agent can write/create files",
+      "Agent can list directory contents"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-006",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Web tool - Fetch web content",
+    "steps": [
+      "Agent can make HTTP GET requests",
+      "Response content is returned to agent",
+      "Network errors are handled gracefully"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-007",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Tool call failure retry mechanism",
+    "steps": [
+      "When a tool call fails, agent can retry with modified parameters",
+      "Maximum retry count is configurable",
+      "Eventual failure is logged with context"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M1-008",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Error categorization and分层处理",
+    "steps": [
+      "Errors are categorized (transient, permanent, permission, etc.)",
+      "Transient errors trigger automatic retry",
+      "Permanent errors are reported with actionable suggestions"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M2-001",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Constitutional AI - Behavior constitution definition",
+    "steps": [
+      "A constitution.md file defines allowed/disallowed behaviors",
+      "Constitution is loaded at agent startup",
+      "Constitution rules are versioned in git"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M2-002",
+    "priority": "P1",
+    "category": "functional",
+    "description": "High-risk operation detection",
+    "steps": [
+      "Operations like rm -rf, format, delete database are flagged as high-risk",
+      "High-risk operations require explicit confirmation or rejection",
+      "Risk level is logged for audit"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M2-003",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Audit logging with trace ID",
+    "steps": [
+      "Each session/cycle has a unique trace ID",
+      "All significant actions are logged with trace ID",
+      "Logs can be searched by trace ID for debugging"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M2-004",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Sandbox execution for risky operations",
+    "steps": [
+      "High-risk commands can be executed in isolated environment",
+      "Sandbox limits file system access",
+      "Sandbox limits network access"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M3-001",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Dialogue UI - Basic chat interface",
+    "steps": [
+      "User can send text messages to agent",
+      "Agent responses are displayed in chat format",
+      "Message history is preserved within session"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M3-002",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Session management - Multiple sessions",
+    "steps": [
+      "User can create new sessions",
+      "User can switch between sessions",
+      "Each session maintains independent context"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M3-003",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Streaming output for agent responses",
+    "steps": [
+      "Agent responses are displayed as they are generated",
+      "User sees progressive text appearance",
+      "Streaming can be interrupted by user"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M3-004",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Tool call visualization",
+    "steps": [
+      "Tool calls are displayed with tool name and parameters",
+      "Tool execution status is shown (running/success/failed)",
+      "Tool results are displayed in readable format"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M3-005",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Code/artifact rendering",
+    "steps": [
+      "Code blocks are syntax highlighted",
+      "Generated files can be previewed",
+      "Artifacts can be downloaded"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M4-001",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Failure auto-recovery",
+    "steps": [
+      "When agent encounters unrecoverable error, state is saved",
+      "Agent can resume from saved state",
+      "Recovery attempts are logged"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M4-002",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Task queue with priority scheduling",
+    "steps": [
+      "Tasks can be queued for later execution",
+      "Higher priority tasks execute first",
+      "Queue state persists across restarts"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M4-003",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Multi-agent collaboration - Coder agent",
+    "steps": [
+      "Coder agent specializes in code generation and modification",
+      "Coder agent receives tasks from orchestrator",
+      "Coder agent reports completion status"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M4-004",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Multi-agent collaboration - Tester agent",
+    "steps": [
+      "Tester agent specializes in running tests and verification",
+      "Tester agent can validate coder's output",
+      "Tester agent reports test results"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M4-005",
+    "priority": "P2",
+    "category": "functional",
+    "description": "Multi-agent collaboration - Reviewer agent",
+    "steps": [
+      "Reviewer agent specializes in code review",
+      "Reviewer agent provides feedback on code quality",
+      "Reviewer can approve or request changes"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M5-001",
+    "priority": "P2",
+    "category": "non-functional",
+    "description": "Load testing - Handle concurrent sessions",
+    "steps": [
+      "System handles 10+ concurrent sessions without degradation",
+      "Response time remains under 5s for typical operations",
+      "Memory usage stays within bounds"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M5-002",
+    "priority": "P1",
+    "category": "non-functional",
+    "description": "Stability - 72-hour continuous operation",
+    "steps": [
+      "System runs continuously for 72 hours without crash",
+      "Memory leaks are within acceptable limits",
+      "All cycles complete successfully or log appropriate errors"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M5-003",
+    "priority": "P2",
+    "category": "non-functional",
+    "description": "Cost optimization - Token usage tracking",
+    "steps": [
+      "Token usage is logged per session/cycle",
+      "Cost metrics are available in dashboard/logs",
+      "High-cost operations are flagged"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M5-004",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Regression testing suite",
+    "steps": [
+      "Core functionality has automated regression tests",
+      "Tests run on each commit",
+      "Test results are reported in CI"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "M5-005",
+    "priority": "P2",
+    "category": "non-functional",
+    "description": "Deployment runbook and alerts",
+    "steps": [
+      "Deployment steps are documented",
+      "Health check endpoints are available",
+      "Alerts are configured for critical failures"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "MEM-001",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Short-term session memory",
+    "steps": [
+      "Agent remembers context within current session",
+      "Conversation history is maintained",
+      "Context window is managed efficiently"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "MEM-002",
+    "priority": "P1",
+    "category": "functional",
+    "description": "Long-term task memory",
+    "steps": [
+      "Agent can recall information from previous sessions",
+      "Task outcomes are persisted and searchable",
+      "Memory is indexed for efficient retrieval"
+    ],
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "MCP-001",
+    "priority": "P2",
+    "category": "functional",
+    "description": "MCP (Model Context Protocol) integration",
+    "steps": [
+      "Agent can connect to MCP servers",
+      "MCP tools are available to agent",
+      "MCP resources can be accessed"
+    ],
+    "passes": false,
+    "evidence": ""
+  }
+]

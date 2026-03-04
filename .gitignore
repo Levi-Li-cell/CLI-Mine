@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+.agent/runtime/
+.agent/prompts/
+.agent/logs/

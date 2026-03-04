@@ -1,0 +1,46 @@
+# Claude-like AI Agent Development Progress
+
+## Session: INIT (2026-03-04)
+
+### Initialization Completed
+
+**Created files:**
+1. `init.sh` - Environment initialization script with:
+   - Python/Git availability checks
+   - Required file verification
+   - Directory structure setup (.agent/runtime, .agent/prompts, .agent/logs)
+   - Smoke test for harness.py
+
+2. `feature_list.json` - Comprehensive feature breakdown with 32 features:
+   - M0 (Baseline): 3 features - Harness bootstrap, continuous loop, file tracking
+   - M1 (Core Agent): 8 features - ReAct loop, tools (shell/file/web), retry, error handling
+   - M2 (Safety): 4 features - Constitutional AI, risk detection, audit logs, sandbox
+   - M3 (UI): 5 features - Chat interface, sessions, streaming, tool visualization
+   - M4 (Automation): 5 features - Recovery, task queue, multi-agent collaboration
+   - M5 (Production): 5 features - Load testing, stability, cost, regression, deployment
+   - Supporting: 2 memory features, 1 MCP integration
+
+**Project structure:**
+```
+CLI-Mine/
+├── .agent/
+│   ├── logs/           # Agent execution logs
+│   ├── prompts/        # Session prompt files
+│   └── runtime/        # Runtime state (harness.log, initializer.done)
+├── prompts/
+│   ├── initializer_prompt.md
+│   └── coding_prompt.md
+├── config.json         # Harness configuration
+├── harness.py          # Main harness script
+├── init.sh             # Environment init script
+├── feature_list.json   # Feature breakdown
+├── claude-progress.txt # This file
+└── project_goal.md     # Project objectives
+```
+
+**Next session should:**
+- Run init.sh to verify environment
+- Pick M0-001 (Harness bootstrap flow) as first feature
+- Implement and verify end-to-end bootstrap functionality
+
+---

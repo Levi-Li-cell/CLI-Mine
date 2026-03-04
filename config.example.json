@@ -1,0 +1,22 @@
+{
+  "project_name": "my-claude-like-agent",
+  "agent_command_template": "claude --print --dangerously-skip-permissions -f \"{prompt_file}\"",
+  "working_directory": ".",
+  "sleep_seconds_between_cycles": 10,
+  "max_cycles": 0,
+  "git_required": true,
+  "run_init_once": true,
+  "init_script": "./init.sh",
+  "feature_file": "feature_list.json",
+  "progress_file": "claude-progress.txt",
+  "project_goal_file": "project_goal.md",
+  "post_cycle_checks": [
+    "git status --short"
+  ],
+  "default_priority_order": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ]
+}
