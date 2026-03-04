@@ -6,8 +6,18 @@ from typing import Any, Dict, List, Optional
 
 from .base import BaseTool, ToolResult, ToolSchema
 
+# Import sandbox with fallback for standalone usage
+try:
+    from safety.sandbox import ShellSandbox, SandboxMode, SandboxConfig
+    SANDBOX_AVAILABLE = True
+except ImportError:
+    SANDBOX_AVAILABLE = False
+    ShellSandbox = None
+    SandboxMode = None
+    SandboxConfig = None
 
-# Default blocked command patterns for safety
+
+# Default blocked command patterns for safety (legacy fallback)
 DEFAULT_BLOCKED_PATTERNS = [
     "rm -rf /",
     "rm -rf /*",
@@ -23,17 +33,32 @@ DEFAULT_BLOCKED_PATTERNS = [
 
 
 class ShellTool(BaseTool):
-    """Tool for executing shell commands with safety restrictions."""
+    """Tool for executing shell commands with safety restrictions.
+
+    Uses the ShellSandbox system for command categorization and allowlist
+    enforcement. Falls back to basic pattern matching if sandbox is unavailable.
+    """
 
     def __init__(
         self,
         allowed_dir: Optional[Path] = None,
         blocked_patterns: Optional[List[str]] = None,
         default_timeout: int = 60,
+        sandbox_mode: str = "moderate",
+        use_sandbox: bool = True,
     ):
         self.allowed_dir = Path(allowed_dir).resolve() if allowed_dir else None
         self.blocked_patterns = blocked_patterns or DEFAULT_BLOCKED_PATTERNS
         self.default_timeout = default_timeout
+
+        # Initialize sandbox if available and requested
+        self.sandbox = None
+        if use_sandbox and SANDBOX_AVAILABLE:
+            mode = SandboxMode(sandbox_mode) if isinstance(sandbox_mode, str) else sandbox_mode
+            config = SandboxConfig(mode=mode)
+            if self.allowed_dir:
+                config.allowed_directories = [str(self.allowed_dir)]
+            self.sandbox = ShellSandbox(config=config)
 
     @property
     def schema(self) -> ToolSchema:
@@ -67,11 +92,34 @@ class ShellTool(BaseTool):
         )
 
     def _is_blocked(self, command: str) -> Optional[str]:
-        """Check if command matches blocked patterns. Returns reason or None."""
+        """Check if command matches blocked patterns. Returns reason or None.
+
+        Uses ShellSandbox if available, otherwise falls back to basic pattern matching.
+        """
+        # Use sandbox if available
+        if self.sandbox:
+            decision = self.sandbox.evaluate(command)
+            if not decision.allowed:
+                # Build detailed denial message
+                reason = decision.reason
+                if decision.alternative:
+                    reason += f"\nAlternative: {decision.alternative}"
+                if decision.matched_forbidden:
+                    reason += f"\nMatched forbidden pattern: {decision.matched_forbidden}"
+                return reason
+            return None
+
+        # Fallback to basic pattern matching
         cmd_lower = command.lower().strip()
         for pattern in self.blocked_patterns:
             if pattern.lower() in cmd_lower:
                 return f"Command matches blocked pattern: {pattern}"
+        return None
+
+    def _get_sandbox_info(self, command: str) -> Optional[Dict[str, Any]]:
+        """Get detailed sandbox information for a command (for logging/debugging)."""
+        if self.sandbox:
+            return self.sandbox.get_command_info(command)
         return None
 
     def execute(
@@ -82,10 +130,20 @@ class ShellTool(BaseTool):
         check: bool = True,
         **kwargs,
     ) -> ToolResult:
-        # Safety check
+        # Safety check with enhanced sandbox
         blocked_reason = self._is_blocked(command)
         if blocked_reason:
-            return ToolResult(success=False, output="", error=f"BLOCKED: {blocked_reason}")
+            # Get sandbox info for additional context
+            sandbox_info = self._get_sandbox_info(command)
+            metadata = {"command": command, "sandbox_blocked": True}
+            if sandbox_info:
+                metadata["sandbox_info"] = sandbox_info
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"BLOCKED: {blocked_reason}",
+                metadata=metadata,
+            )
 
         # Determine working directory
         work_dir = Path(cwd).resolve() if cwd else (self.allowed_dir or Path.cwd())

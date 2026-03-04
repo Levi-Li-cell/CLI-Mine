@@ -126,8 +126,8 @@
       "Allowlist approved operations",
       "Show clear denial reason"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-04: Created safety/sandbox.py with comprehensive command sandbox. CommandCategory enum (10 categories: READ_ONLY, FILE_WRITE, FILE_DELETE, SYSTEM_INFO, NETWORK, PACKAGE_MGMT, PROCESS_MGMT, DESTRUCTIVE, PRIVILEGED, UNKNOWN). SandboxMode enum (PERMISSIVE/MODERATE/STRICT). 70+ command rules in DEFAULT_COMMAND_RULES with categorization, safe/dangerous flags, and alternatives. 13 FORBIDDEN_PATTERNS for always-blocked operations (root deletion, fork bombs, remote script execution). ShellSandbox.evaluate() returns SandboxDecision with allowed, category, reason, alternative, matched_forbidden. ShellTool integration via _is_blocked() using sandbox.evaluate(). Verification test passed all 10 checks: imports, forbidden patterns, allowlist, denial reasons, sandbox modes, command categorization, dangerous flags, ShellTool integration, allowed/blocked lists (53 allowed, 31 blocked), blocked directory detection."
   },
   {
     "id": "M2-004",

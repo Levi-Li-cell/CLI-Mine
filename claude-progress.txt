@@ -445,3 +445,56 @@ $ python -c "...verification..."
 - Next: M2-003 (Sandbox and allowlist for destructive commands) or M2-004 (End-to-end audit logging with trace IDs)
 
 ---
+
+## Session: M2-003 (2026-03-04)
+
+### Feature completed
+- **id**: M2-003
+- **description**: Sandbox and allowlist for destructive commands
+
+### Changes made
+- Verified existing `safety/sandbox.py` implementation is complete and comprehensive:
+  - `CommandCategory` enum with 10 categories (READ_ONLY, FILE_WRITE, FILE_DELETE, SYSTEM_INFO, NETWORK, PACKAGE_MGMT, PROCESS_MGMT, DESTRUCTIVE, PRIVILEGED, UNKNOWN)
+  - `SandboxMode` enum (PERMISSIVE, MODERATE, STRICT) for different security levels
+  - 70+ `DEFAULT_COMMAND_RULES` with categorization, safe/dangerous flags, and alternatives
+  - 13 `FORBIDDEN_PATTERNS` for always-blocked dangerous operations
+  - `ShellSandbox` class with `evaluate()` returning `SandboxDecision`
+  - `SandboxConfig` for customizable behavior
+- Verified `ShellTool` integration via `_is_blocked()` using sandbox
+- Verified clear denial reasons with alternatives are provided
+
+### Verification run
+```
+$ python verify_m2_003.py
+=== M2-003 VERIFICATION: Sandbox and Allowlist for Destructive Commands ===
+
+1. Testing: Imports work correctly...
+   [PASS] All sandbox classes imported successfully
+2. Testing: Forbidden command patterns are blocked...
+   [PASS] All 8 forbidden commands blocked
+3. Testing: Allowlist for approved operations...
+   [PASS] All 6 safe commands allowed with correct categories
+4. Testing: Clear denial reasons are provided...
+   [PASS] Alternative suggestion provided
+   [PASS] Clear denial reasons provided
+5. Testing: Different sandbox modes work...
+   [PASS] All sandbox modes work correctly
+6. Testing: Command categorization...
+   [PASS] All 10 commands categorized correctly
+7. Testing: Dangerous flag detection...
+   [PASS] Dangerous flags detected correctly
+8. Testing: ShellTool integration with sandbox...
+   [PASS] ShellTool integrates with sandbox correctly
+9. Testing: get_allowed_commands and get_blocked_commands...
+   [PASS] Allowed: 53 commands, Blocked: 31 commands
+10. Testing: Blocked directory detection...
+   [PASS] All blocked directory commands detected
+
+=== M2-003 VERIFICATION PASSED (10/10) ===
+```
+
+### Risks/follow-ups
+- None. M2-003 passes all verification steps.
+- Next: M2-004 (End-to-end audit logging with trace IDs)
+
+---
