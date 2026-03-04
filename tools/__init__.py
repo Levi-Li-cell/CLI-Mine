@@ -29,6 +29,18 @@ Usage:
     # Now all executions are checked against the constitution
     result = registry.execute("shell", {"command": "rm -rf /"})
     # Returns: ToolResult(success=False, error="BLOCKED by policy: ...")
+
+    # With retry policy (M1-004):
+    from tools import RetryPolicy, RetryExecutor, create_default_fallback_handler
+
+    policy = RetryPolicy(max_retries=3, base_delay=1.0)
+    registry.set_retry_executor(RetryExecutor(
+        policy=policy,
+        fallback_handler=create_default_fallback_handler(),
+        audit_log_path=Path(".agent/runtime/retry_log.jsonl"),
+    ))
+
+    result = registry.execute_with_retry("web", {"url": "https://example.com"})
 """
 
 from pathlib import Path
@@ -38,6 +50,16 @@ from .base import BaseTool, ToolResult, ToolSchema, SchemaValidator, ValidationE
 from .file_tool import FileTool
 from .shell_tool import ShellTool
 from .web_tool import WebTool
+from .retry import (
+    RetryPolicy,
+    RetryExecutor,
+    RetryAttempt,
+    RetryLog,
+    RetryAction,
+    TransientErrorPattern,
+    FallbackHandler,
+    create_default_fallback_handler,
+)
 
 if TYPE_CHECKING:
     from safety import PolicyChecker, PolicyDecision
@@ -46,9 +68,14 @@ if TYPE_CHECKING:
 class ToolRegistry:
     """Registry for managing and executing tools."""
 
-    def __init__(self, policy_checker: Optional["PolicyChecker"] = None):
+    def __init__(
+        self,
+        policy_checker: Optional["PolicyChecker"] = None,
+        retry_executor: Optional[RetryExecutor] = None,
+    ):
         self._tools: Dict[str, BaseTool] = {}
         self._policy_checker: Optional["PolicyChecker"] = policy_checker
+        self._retry_executor: Optional[RetryExecutor] = retry_executor
 
     def register(self, tool: BaseTool) -> None:
         """Register a tool instance."""
@@ -96,6 +123,21 @@ class ToolRegistry:
         """Get the current policy checker, if any."""
         return self._policy_checker
 
+    def set_retry_executor(self, executor: Optional[RetryExecutor]) -> None:
+        """Set or clear the retry executor for this registry.
+
+        When set, execute_with_retry() will use this executor to handle
+        transient failures with automatic retries and fallback strategies.
+
+        Args:
+            executor: RetryExecutor instance or None to disable retry logic
+        """
+        self._retry_executor = executor
+
+    def get_retry_executor(self) -> Optional[RetryExecutor]:
+        """Get the current retry executor, if any."""
+        return self._retry_executor
+
     def execute(self, name: str, arguments: Dict[str, Any]) -> ToolResult:
         """Execute a tool by name with given arguments.
 
@@ -142,6 +184,37 @@ class ToolRegistry:
 
         return tool.execute(**arguments)
 
+    def execute_with_retry(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+    ) -> ToolResult:
+        """Execute a tool with retry logic for transient failures.
+
+        This method wraps execute() with automatic retry handling:
+        - Detects transient errors (timeouts, rate limits, 5xx errors)
+        - Retries with exponential backoff
+        - Calls fallback handler if all retries fail
+        - Logs all retry attempts
+
+        If no retry executor is configured, falls back to regular execute().
+
+        Args:
+            name: Tool name to execute
+            arguments: Arguments to pass to the tool
+
+        Returns:
+            ToolResult with success/failure and retry metadata
+        """
+        if not self._retry_executor:
+            return self.execute(name, arguments)
+
+        return self._retry_executor.execute_with_retry(
+            execute_fn=self.execute,
+            tool_name=name,
+            arguments=arguments,
+        )
+
     def __contains__(self, name: str) -> bool:
         return name in self._tools
 
@@ -154,6 +227,8 @@ def create_default_registry(
     shell_timeout: int = 60,
     web_timeout: int = 30,
     constitution_path: Optional[str] = None,
+    retry_policy: Optional[RetryPolicy] = None,
+    retry_audit_log: Optional[str] = None,
 ) -> ToolRegistry:
     """Create a registry with default tools registered.
 
@@ -162,6 +237,8 @@ def create_default_registry(
         shell_timeout: Default timeout for shell commands
         web_timeout: Default timeout for web requests
         constitution_path: Optional path to constitution file for policy checking
+        retry_policy: Optional RetryPolicy for automatic retry on transient failures
+        retry_audit_log: Optional path for retry attempt logging (JSONL)
 
     Returns:
         Configured ToolRegistry instance
@@ -189,6 +266,15 @@ def create_default_registry(
             import warnings
             warnings.warn(f"Failed to load constitution from {constitution_path}: {e}")
 
+    # Configure retry executor if policy provided (M1-004)
+    if retry_policy:
+        audit_path = Path(retry_audit_log) if retry_audit_log else None
+        registry.set_retry_executor(RetryExecutor(
+            policy=retry_policy,
+            fallback_handler=create_default_fallback_handler(),
+            audit_log_path=audit_path,
+        ))
+
     return registry
 
 
@@ -203,4 +289,13 @@ __all__ = [
     "ShellTool",
     "WebTool",
     "create_default_registry",
+    # Retry policy (M1-004)
+    "RetryPolicy",
+    "RetryExecutor",
+    "RetryAttempt",
+    "RetryLog",
+    "RetryAction",
+    "TransientErrorPattern",
+    "FallbackHandler",
+    "create_default_fallback_handler",
 ]

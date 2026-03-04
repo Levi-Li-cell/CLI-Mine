@@ -51,6 +51,18 @@ Next active feature becomes `M1-001`.
 
 ---
 
+## Session: MANUAL OVERRIDE 2 (2026-03-04)
+
+- User explicitly requested another skip to continue downstream execution.
+- Feature `M4-001` marked as skipped-complete with evidence note in `feature_list.json`.
+- Skip audit records updated in:
+  - `.agent/runtime/blocked_features.jsonl`
+  - `.agent/runtime/feature_attempt_state.json`
+
+Next active P0 feature becomes `M1-004` or `M2-003` depending on loop ordering by priority and id.
+
+---
+
 ## Session: M0-001 (2026-03-04)
 
 ### Feature completed
@@ -312,6 +324,65 @@ $ python -c "...verification..."
 - M2-002 can build on this for risk classification in user requests
 - M2-003 can extend policy rules for more granular sandbox controls
 - Next: M2-002 (Risk classification for user requests)
+
+---
+
+## Session: M1-004 (2026-03-04)
+
+### Feature completed
+- **id**: M1-004
+- **description**: Tool failure retry and fallback policy
+
+### Changes made
+- Created `tools/retry.py` with comprehensive retry infrastructure:
+  - `RetryPolicy` class with configurable max_retries, base_delay, max_delay, exponential_base, jitter
+  - `TransientErrorPattern` class for detecting retriable errors via regex
+  - `RetryExecutor` class implementing exponential backoff retry loop
+  - `FallbackHandler` type and built-in fallbacks for file (encoding) and web (extended timeout)
+  - `RetryAttempt` and `RetryLog` dataclasses for logging retry attempts
+  - `create_default_fallback_handler()` combining multiple fallback strategies
+- Integrated with ToolRegistry via `set_retry_executor()` and `execute_with_retry()`
+- Default transient patterns cover: timeouts, HTTP 5xx, rate limits (429), DNS errors, file locks
+
+### Verification run
+```
+$ python verify_m1_004.py
+=== M1-004 VERIFICATION: Tool Failure Retry and Fallback Policy ===
+
+1. Testing: Imports work correctly...
+   [PASS] All retry classes imported successfully
+2. Testing: RetryPolicy detects transient errors...
+   [PASS] HTTP 503 detected as transient
+   [PASS] HTTP 404 correctly not detected as transient
+   [PASS] Timeout detected as transient
+3. Testing: RetryExecutor retries on transient errors...
+   [PASS] Retried 3 times and succeeded
+4. Testing: RetryExecutor exhausts retries on persistent failure...
+   [PASS] Exhausted retries, error indicates retry count
+5. Testing: Fallback handler is called after retries exhausted...
+   [PASS] Fallback handler was called and returned success
+6. Testing: Retry attempts are logged...
+   [PASS] Retry attempts logged (2 attempts)
+7. Testing: ToolRegistry.execute_with_retry integration...
+   [PASS] execute_with_retry falls back to execute when no executor set
+   [PASS] Retry executor can be set on registry
+8. Testing: TransientErrorPattern matching...
+   [PASS] Pattern matches correct tool and error
+   [PASS] Pattern does not match wrong tool
+9. Testing: RetryPolicy exponential backoff...
+   [PASS] Exponential backoff correct: [1.0, 2.0, 4.0, 8.0, 16.0]
+   [PASS] Max delay cap respected: 10.0
+10. Testing: Default fallback handlers...
+   [PASS] Default fallback handler created
+   [PASS] File fallback returns None for unreadable file
+
+=== M1-004 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- None. M1-004 passes all verification steps.
+- Fallback handlers could be extended with more strategies (e.g., cached responses, alternative URLs)
+- Next: M2-003 (Sandbox and allowlist for destructive commands) or M2-004 (End-to-end audit logging)
 
 ---
 
