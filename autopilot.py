@@ -15,6 +15,7 @@ FEATURE_FILE = ROOT / "feature_list.json"
 CONFIG_FILE = ROOT / "config.json"
 LOG_FILE = ROOT / ".agent" / "runtime" / "autopilot.log"
 DEBUG_LOG_FILE = ROOT / ".agent" / "runtime" / "autopilot.debug.log"
+STATE_FILE = ROOT / ".agent" / "runtime" / "autopilot_state.json"
 
 
 def now_iso() -> str:
@@ -43,6 +44,46 @@ def load_config() -> Dict[str, Any]:
     except Exception:
         pass
     return {}
+
+
+def load_state() -> Dict[str, Any]:
+    if not STATE_FILE.exists():
+        return {"consecutive_failures": 0, "last_failure": ""}
+    try:
+        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {
+                "consecutive_failures": int(data.get("consecutive_failures", 0)),
+                "last_failure": str(data.get("last_failure", "")),
+            }
+    except Exception:
+        pass
+    return {"consecutive_failures": 0, "last_failure": ""}
+
+
+def save_state(state: Dict[str, Any]) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "consecutive_failures": int(state.get("consecutive_failures", 0)),
+        "last_failure": str(state.get("last_failure", "")),
+        "updated_at": now_iso(),
+    }
+    temp = STATE_FILE.with_suffix(".tmp")
+    temp.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
+    temp.replace(STATE_FILE)
+
+
+def reset_failure_state(state: Dict[str, Any]) -> None:
+    state["consecutive_failures"] = 0
+    state["last_failure"] = ""
+    save_state(state)
+
+
+def record_failure(state: Dict[str, Any], reason: str) -> None:
+    state["consecutive_failures"] = int(state.get("consecutive_failures", 0)) + 1
+    state["last_failure"] = reason
+    save_state(state)
+    log(f"failure recorded streak={state['consecutive_failures']} reason={reason}")
 
 
 def all_features_done() -> bool:
@@ -240,7 +281,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     cfg = load_config()
+    state = load_state()
     sleep_seconds = int(cfg.get("autopilot_sleep_seconds", 10))
+    pause_seconds = int(cfg.get("autopilot_pause_seconds", 180))
+    max_consecutive_failures = int(cfg.get("autopilot_max_consecutive_failures", 3))
     debug_commands = cfg.get(
         "autopilot_debug_test_commands",
         [
@@ -261,10 +305,15 @@ def main() -> int:
         status_before = get_git_status_map()
 
         if not run_debug_tests(ROOT, debug_commands, timeout_seconds=int(cfg.get("autopilot_debug_timeout_seconds", 600))):
+            record_failure(state, "pre_run_debug_failed")
             log("skip harness launch because debug tests failed")
             if args.once:
                 return 1
-            time.sleep(sleep_seconds)
+            if state["consecutive_failures"] >= max_consecutive_failures:
+                log(f"circuit breaker engaged pause={pause_seconds}s")
+                time.sleep(max(1, pause_seconds))
+            else:
+                time.sleep(sleep_seconds)
             continue
 
         cmd = [sys.executable, "harness.py", "--bootstrap"]
@@ -281,25 +330,39 @@ def main() -> int:
         env.pop("CLAUDECODE", None)
         cp = subprocess.run(cmd, cwd=str(ROOT), text=True, env=env)
         log(f"harness exited rc={cp.returncode}")
+        if cp.returncode != 0:
+            record_failure(state, f"harness_rc_{cp.returncode}")
 
         if not run_debug_tests(ROOT, debug_commands, timeout_seconds=int(cfg.get("autopilot_debug_timeout_seconds", 600))):
+            record_failure(state, "post_run_debug_failed")
             log("post-run debug tests failed")
             if args.once:
                 return 1
 
         status_after = get_git_status_map()
         cycle_hint = "once" if args.once else "loop"
-        auto_commit_and_push(cfg, cycle_hint=cycle_hint, before_status=status_before, after_status=status_after)
+        auto_git_ok = auto_commit_and_push(cfg, cycle_hint=cycle_hint, before_status=status_before, after_status=status_after)
+        if not auto_git_ok:
+            record_failure(state, "auto_git_failed")
 
         cleanup_old_claude()
         cleanup_previous_step_cache(ROOT, cfg)
 
         if cp.returncode == 0 and all_features_done():
             log("completed successfully")
+            reset_failure_state(state)
             return 0
+
+        if cp.returncode == 0 and auto_git_ok:
+            reset_failure_state(state)
 
         if args.once:
             return cp.returncode
+
+        if state["consecutive_failures"] >= max_consecutive_failures:
+            log(f"circuit breaker engaged pause={pause_seconds}s")
+            time.sleep(max(1, pause_seconds))
+            continue
 
         time.sleep(sleep_seconds)
 

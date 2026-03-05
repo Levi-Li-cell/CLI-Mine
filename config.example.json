@@ -19,6 +19,8 @@
   ],
   "autopilot_sleep_seconds": 10,
   "autopilot_debug_timeout_seconds": 600,
+  "autopilot_max_consecutive_failures": 3,
+  "autopilot_pause_seconds": 180,
   "autopilot_debug_test_commands": [
     "python verify_m3_002.py",
     "python verify_m4_004.py"
