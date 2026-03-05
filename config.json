@@ -23,6 +23,9 @@
     "python verify_m3_002.py",
     "python verify_m4_004.py"
   ],
+  "autopilot_git_auto_commit": true,
+  "autopilot_git_auto_push": true,
+  "autopilot_git_commit_prefix": "chore(autopilot)",
   "autopilot_cache_cleanup_globs": [
     "**/__pycache__",
     "**/*.pyc",

@@ -146,6 +146,90 @@ def run_debug_tests(root: Path, commands: List[str], timeout_seconds: int = 600)
     return all_passed
 
 
+def _run_git(args: List[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git"] + args,
+        cwd=str(ROOT),
+        text=True,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def get_git_status_map() -> Dict[str, str]:
+    cp = _run_git(["status", "--porcelain"])
+    if cp.returncode != 0:
+        debug_log(f"git status failed: {cp.stderr.strip()}")
+        return {}
+
+    status_map: Dict[str, str] = {}
+    for line in (cp.stdout or "").splitlines():
+        if len(line) < 4:
+            continue
+        status = line[:2]
+        path = line[3:]
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        status_map[path] = status
+    return status_map
+
+
+def select_new_changed_paths(before: Dict[str, str], after: Dict[str, str]) -> List[str]:
+    selected: List[str] = []
+    for path, status in after.items():
+        if path not in before:
+            selected.append(path)
+    selected.sort()
+    return selected
+
+
+def auto_commit_and_push(
+    cfg: Dict[str, Any],
+    cycle_hint: str,
+    before_status: Dict[str, str],
+    after_status: Dict[str, str],
+) -> bool:
+    if not bool(cfg.get("autopilot_git_auto_commit", True)):
+        log("auto-commit disabled by config")
+        return True
+
+    selected_paths = select_new_changed_paths(before_status, after_status)
+    if not selected_paths:
+        log("auto-commit skipped: no newly changed paths")
+        return True
+
+    add_cmd = ["add"] + selected_paths
+    cp_add = _run_git(add_cmd)
+    if cp_add.returncode != 0:
+        log(f"auto-commit failed at git add rc={cp_add.returncode}")
+        debug_log(cp_add.stderr.strip())
+        return False
+
+    prefix = str(cfg.get("autopilot_git_commit_prefix", "chore(autopilot)"))
+    message = f"{prefix}: checkpoint {cycle_hint}"
+    cp_commit = _run_git(["commit", "-m", message])
+    if cp_commit.returncode != 0:
+        log(f"auto-commit failed at git commit rc={cp_commit.returncode}")
+        debug_log(cp_commit.stdout.strip())
+        debug_log(cp_commit.stderr.strip())
+        return False
+
+    log(f"auto-commit success paths={len(selected_paths)}")
+    debug_log(cp_commit.stdout.strip())
+
+    if bool(cfg.get("autopilot_git_auto_push", True)):
+        cp_push = _run_git(["push"])
+        if cp_push.returncode != 0:
+            log(f"auto-push failed rc={cp_push.returncode}")
+            debug_log(cp_push.stdout.strip())
+            debug_log(cp_push.stderr.strip())
+            return False
+        log("auto-push success")
+
+    return True
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Autopilot launcher for harness")
     p.add_argument("--once", action="store_true", help="Run one harness launch then exit")
@@ -174,6 +258,8 @@ def main() -> int:
         cleanup_old_claude()
         cleanup_previous_step_cache(ROOT, cfg)
 
+        status_before = get_git_status_map()
+
         if not run_debug_tests(ROOT, debug_commands, timeout_seconds=int(cfg.get("autopilot_debug_timeout_seconds", 600))):
             log("skip harness launch because debug tests failed")
             if args.once:
@@ -195,6 +281,15 @@ def main() -> int:
         env.pop("CLAUDECODE", None)
         cp = subprocess.run(cmd, cwd=str(ROOT), text=True, env=env)
         log(f"harness exited rc={cp.returncode}")
+
+        if not run_debug_tests(ROOT, debug_commands, timeout_seconds=int(cfg.get("autopilot_debug_timeout_seconds", 600))):
+            log("post-run debug tests failed")
+            if args.once:
+                return 1
+
+        status_after = get_git_status_map()
+        cycle_hint = "once" if args.once else "loop"
+        auto_commit_and_push(cfg, cycle_hint=cycle_hint, before_status=status_before, after_status=status_after)
 
         cleanup_old_claude()
         cleanup_previous_step_cache(ROOT, cfg)
