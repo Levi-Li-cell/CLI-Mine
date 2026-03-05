@@ -3,15 +3,32 @@
   "agent_command_template": "claude --print --dangerously-skip-permissions -f \"{prompt_file}\"",
   "working_directory": ".",
   "sleep_seconds_between_cycles": 10,
+  "agent_timeout_seconds": 1800,
+  "allow_skip_on_stuck": true,
+  "max_attempts_per_feature": 8,
   "max_cycles": 0,
   "git_required": true,
   "run_init_once": true,
+  "bootstrap_allow_existing_artifacts": true,
   "init_script": "./init.sh",
   "feature_file": "feature_list.json",
   "progress_file": "claude-progress.txt",
   "project_goal_file": "project_goal.md",
   "post_cycle_checks": [
     "git status --short"
+  ],
+  "autopilot_sleep_seconds": 10,
+  "autopilot_debug_timeout_seconds": 600,
+  "autopilot_debug_test_commands": [
+    "python verify_m3_002.py",
+    "python verify_m4_004.py"
+  ],
+  "autopilot_cache_cleanup_globs": [
+    "**/__pycache__",
+    "**/*.pyc",
+    ".agent/runtime/cycle_state.json",
+    ".agent/runtime/health_status.json",
+    ".agent/runtime/autopilot_step_cache.json"
   ],
   "default_priority_order": [
     "P0",
