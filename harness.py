@@ -11,6 +11,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# Audit logging with trace IDs (M2-004)
+from audit import AuditLogger, TraceContext, AuditReplay, create_default_audit_logger
+from health import HealthMonitor
 
 _shutdown_requested = False
 
@@ -27,6 +30,9 @@ LOG_DIR = Path(".agent/logs")
 ATTEMPT_STATE_FILE = Path(".agent/runtime/feature_attempt_state.json")
 BLOCKED_LOG_FILE = Path(".agent/runtime/blocked_features.jsonl")
 REACT_TRACE_FILE = Path(".agent/runtime/react_traces.jsonl")
+CYCLE_STATE_FILE = Path(".agent/runtime/cycle_state.json")
+AUDIT_LOG_FILE = Path(".agent/runtime/audit.jsonl")  # M2-004: End-to-end audit logging
+HEALTH_STATUS_FILE = Path(".agent/runtime/health_status.json")
 
 
 def extract_react_traces(text: str) -> List[Dict[str, Any]]:
@@ -105,7 +111,34 @@ def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
         f.write(json.dumps(row, ensure_ascii=True) + "\n")
 
 
-def run_command(command: str, cwd: Path, timeout: Optional[int] = None) -> subprocess.CompletedProcess:
+# Global audit logger instance (M2-004)
+_audit_logger: Optional[AuditLogger] = None
+
+
+def get_audit_logger(root: Optional[Path] = None) -> AuditLogger:
+    """Get or create the global audit logger instance."""
+    global _audit_logger
+    if _audit_logger is None:
+        log_path = (root or Path(".")) / AUDIT_LOG_FILE if root else AUDIT_LOG_FILE
+        _audit_logger = create_default_audit_logger(log_path=log_path)
+    return _audit_logger
+
+
+def set_audit_logger(logger: AuditLogger) -> None:
+    """Set the global audit logger instance."""
+    global _audit_logger
+    _audit_logger = logger
+
+
+def run_command(
+    command: str,
+    cwd: Path,
+    timeout: Optional[int] = None,
+    unset_env: Optional[List[str]] = None,
+) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    for key in (unset_env or []):
+        env.pop(key, None)
     return subprocess.run(
         command,
         cwd=str(cwd),
@@ -115,6 +148,7 @@ def run_command(command: str, cwd: Path, timeout: Optional[int] = None) -> subpr
         timeout=timeout,
         encoding="utf-8",
         errors="replace",
+        env=env,
     )
 
 
@@ -157,6 +191,119 @@ def load_attempt_state(root: Path) -> Dict[str, Any]:
 
 def save_attempt_state(root: Path, state: Dict[str, Any]) -> None:
     save_json(root / ATTEMPT_STATE_FILE, state)
+
+
+# Cycle state for crash recovery (M4-001)
+
+def load_cycle_state(root: Path) -> Dict[str, Any]:
+    """Load cycle state from disk. Returns empty state if not found."""
+    path = root / CYCLE_STATE_FILE
+    if not path.exists():
+        return {}
+    try:
+        data = load_json(path)
+        if not isinstance(data, dict):
+            return {}
+        return data
+    except Exception:
+        return {}
+
+
+def save_cycle_state(root: Path, state: Dict[str, Any]) -> None:
+    """Persist cycle state to disk for crash recovery."""
+    save_json(root / CYCLE_STATE_FILE, state)
+
+
+def mark_cycle_start(root: Path, cycle_index: int, feature_id: str, agent_pid: Optional[int] = None) -> None:
+    """Mark a cycle as in-progress before starting agent execution."""
+    state = {
+        "cycle_index": cycle_index,
+        "feature_id": feature_id,
+        "status": "in_progress",
+        "started_at": now_iso(),
+        "completed_at": None,
+        "agent_pid": agent_pid,
+    }
+    save_cycle_state(root, state)
+    append_harness_log(root, f"cycle state saved: cycle={cycle_index} feature={feature_id} status=in_progress")
+
+
+def mark_cycle_complete(root: Path, cycle_index: int, feature_id: str, success: bool) -> None:
+    """Mark a cycle as completed (success or failed)."""
+    state = load_cycle_state(root)
+    state["status"] = "completed" if success else "failed"
+    state["completed_at"] = now_iso()
+    save_cycle_state(root, state)
+    append_harness_log(root, f"cycle state updated: cycle={cycle_index} feature={feature_id} status={state['status']}")
+
+
+def check_crash_recovery(root: Path) -> Optional[Dict[str, Any]]:
+    """
+    Check if there was a crash during a previous cycle.
+    Returns recovery info if crash detected, None otherwise.
+    """
+    state = load_cycle_state(root)
+    if not state:
+        return None
+
+    status = state.get("status", "")
+    if status != "in_progress":
+        return None
+
+    # Check if agent process is still running
+    agent_pid = state.get("agent_pid")
+    if agent_pid:
+        try:
+            # Check if process exists (POSIX)
+            os.kill(agent_pid, 0)
+            # Process still running - not a crash
+            return None
+        except (OSError, ProcessLookupError):
+            # Process not found - confirmed crash
+            pass
+        except AttributeError:
+            # Windows doesn't support os.kill with signal 0
+            # Fall through to assume crash
+            pass
+
+    # Return recovery info
+    return {
+        "cycle_index": state.get("cycle_index", 1),
+        "feature_id": state.get("feature_id"),
+        "started_at": state.get("started_at"),
+        "recovered_at": now_iso(),
+    }
+
+
+def get_next_cycle_index(root: Path) -> int:
+    """
+    Determine the next cycle index based on existing logs.
+    Used for crash recovery to resume from the correct cycle.
+    """
+    log_dir = root / LOG_DIR
+    if not log_dir.exists():
+        return 1
+
+    # Find highest cycle number from existing log files
+    max_cycle = 0
+    for f in log_dir.iterdir():
+        if f.is_file() and f.name.startswith("agent_output_cycle_"):
+            try:
+                # Extract cycle number from filename like agent_output_cycle_000001.log
+                parts = f.stem.split("_")
+                if len(parts) >= 3:
+                    cycle_num = int(parts[-1])
+                    max_cycle = max(max_cycle, cycle_num)
+            except (ValueError, IndexError):
+                continue
+
+    # Also check cycle state for recovery
+    state = load_cycle_state(root)
+    if state and state.get("status") == "in_progress":
+        # Resume from the crashed cycle (it needs to be re-run)
+        return state.get("cycle_index", max_cycle + 1)
+
+    return max_cycle + 1
 
 
 def load_config(root: Path) -> Dict[str, Any]:
@@ -245,7 +392,7 @@ def invoke_agent(
     write_text(prompt_file, prompt_content)
     cmd = command_template.format(prompt_file=str(prompt_file))
     timeout = None if timeout_seconds is None else max(1, int(timeout_seconds))
-    cp = run_command(cmd, root, timeout=timeout)
+    cp = run_command(cmd, root, timeout=timeout, unset_env=["CLAUDECODE"])
 
     write_text(out_file, cp.stdout or "")
     write_text(err_file, cp.stderr or "")
@@ -335,25 +482,96 @@ def run_cycle(root: Path, cfg: Dict[str, Any], cycle_index: int) -> bool:
             append_harness_log(root, "all features passing; stopping")
         return False
 
+    goal_text = read_text(goal_path)
     base_prompt = read_text(prompt_path)
     prompt = render_session_prompt(
         base_prompt=base_prompt,
-        goal_text=read_text(goal_path),
+        goal_text=goal_text,
         feature=next_feature,
         feature_file=cfg["feature_file"],
         progress_file=cfg["progress_file"],
     )
 
     cycle_tag = f"cycle_{cycle_index:06d}"
-    append_harness_log(root, f"cycle start {cycle_tag} feature_id={next_feature.get('id')}")
-    rc = invoke_agent(
-        root,
-        cfg["agent_command_template"],
-        prompt,
-        cycle_tag=cycle_tag,
-        timeout_seconds=cfg.get("agent_timeout_seconds", 1800),
+    feature_id = str(next_feature.get("id", ""))
+
+    # Start audit trace for this cycle (M2-004)
+    audit_logger = get_audit_logger(root)
+    trace = audit_logger.start_trace(
+        task_id=cycle_tag,
+        feature_id=feature_id,
+        metadata={"cycle_index": cycle_index},
     )
+
+    # Log model call with trace_id (M2-004)
+    audit_logger.log_model_call(
+        trace_id=trace.trace_id,
+        model=cfg.get("model_name", "unknown"),
+        provider=cfg.get("model_provider", "unknown"),
+        prompt=prompt[:5000],  # Truncate for storage
+    )
+
+    # Persist cycle state for crash recovery (M4-001)
+    mark_cycle_start(root, cycle_index, feature_id)
+
+    append_harness_log(root, f"cycle start {cycle_tag} feature_id={feature_id} trace_id={trace.trace_id}")
+    use_multi_agent = bool(cfg.get("multi_agent_enabled", False))
+    if use_multi_agent:
+        from agents import create_orchestrator
+
+        orchestrator = create_orchestrator(
+            command_template=cfg["agent_command_template"],
+            root_dir=root,
+            timeout_seconds=cfg.get("agent_timeout_seconds", 1800),
+            max_iterations=int(cfg.get("multi_agent_max_iterations", 2)),
+        )
+        workflow = orchestrator.run_workflow(
+            feature_id=feature_id,
+            goal_text=goal_text,
+            feature=next_feature,
+            context={"cycle": cycle_tag},
+            cycle_tag=cycle_tag,
+        )
+        workflow_path = root / LOG_DIR / f"workflow_{cycle_tag}.json"
+        save_json(workflow_path, workflow.to_dict())
+
+        output_lines = [
+            "## Final Answer",
+            "- Role: Orchestrator",
+            f"- Status: {'COMPLETE' if workflow.decision and workflow.decision.is_approved else 'BLOCKED'}",
+            f"- Summary: {workflow.decision.summary if workflow.decision else 'No decision'}",
+            f"- Files Modified: {workflow.decision.approved_files if workflow.decision else []}",
+            "- Files Created: []",
+            f"- Issues Found: {workflow.decision.required_actions if workflow.decision else []}",
+            f"- Suggestions: {workflow.decision.review_notes if workflow.decision else ''}",
+            f"- Confidence: {workflow.decision.confidence if workflow.decision else 0.0}",
+        ]
+        write_text(root / LOG_DIR / f"agent_output_{cycle_tag}.log", "\n".join(output_lines) + "\n")
+        write_text(root / LOG_DIR / f"agent_error_{cycle_tag}.log", "")
+
+        rc = 0 if workflow.decision and workflow.decision.is_approved else 1
+        if workflow.decision:
+            append_harness_log(
+                root,
+                (
+                    "multi-agent decision "
+                    f"feature_id={feature_id} "
+                    f"decision={workflow.decision.decision.value} "
+                    f"conflicts={len(workflow.conflicts)}"
+                ),
+            )
+    else:
+        rc = invoke_agent(
+            root,
+            cfg["agent_command_template"],
+            prompt,
+            cycle_tag=cycle_tag,
+            timeout_seconds=cfg.get("agent_timeout_seconds", 1800),
+        )
     append_harness_log(root, f"cycle end {cycle_tag} rc={rc}")
+
+    # Mark cycle as complete for crash recovery (M4-001)
+    mark_cycle_complete(root, cycle_index, feature_id, success=(rc == 0))
 
     # Extract and log ReAct traces for observability (M1-001)
     out_file = root / LOG_DIR / f"agent_output_{cycle_tag}.log"
@@ -364,7 +582,14 @@ def run_cycle(root: Path, cfg: Dict[str, Any], cycle_index: int) -> bool:
             log_react_traces(root, cycle_tag, traces)
             append_harness_log(root, f"react traces logged count={len(traces)}")
 
-    feature_id = str(next_feature.get("id", ""))
+        # Log model response with trace_id (M2-004)
+        audit_logger.log_model_response(
+            trace_id=trace.trace_id,
+            response=output_text[:5000],  # Truncate
+            finish_reason="stop" if rc == 0 else "error",
+            error=None if rc == 0 else f"Agent returned rc={rc}",
+        )
+
     attempts = attempt_state.get("attempts", {})
     attempts[feature_id] = int(attempts.get(feature_id, 0)) + 1
     attempt_state["attempts"] = attempts
@@ -399,6 +624,15 @@ def run_cycle(root: Path, cfg: Dict[str, Any], cycle_index: int) -> bool:
     save_attempt_state(root, attempt_state)
 
     run_post_checks(root, cfg.get("post_cycle_checks", []))
+
+    # End audit trace (M2-004)
+    trace_status = "success" if rc == 0 else "failed"
+    audit_logger.end_trace(
+        trace_id=trace.trace_id,
+        status=trace_status,
+        summary=f"Cycle completed with rc={rc}",
+    )
+
     return True
 
 
@@ -424,6 +658,9 @@ def main() -> int:
     cfg = load_config(root)
     git_check(root, bool(cfg.get("git_required", True)))
 
+    health_monitor = HealthMonitor(root / cfg.get("health_status_file", str(HEALTH_STATUS_FILE)))
+    health_monitor.update_heartbeat(source="harness_start")
+
     if args.bootstrap and should_run_initializer(root, cfg):
         rc = run_initializer(root, cfg)
         if rc == 0:
@@ -439,13 +676,39 @@ def main() -> int:
     max_cycles = int(cfg.get("max_cycles", 0))
     limit = max_cycles if args.run_forever and max_cycles > 0 else (sys.maxsize if args.run_forever else args.cycles)
 
-    cycle = 1
+    # Check for crash recovery (M4-001)
+    recovery_info = check_crash_recovery(root)
+    if recovery_info:
+        append_harness_log(
+            root,
+            f"crash recovery detected: cycle={recovery_info['cycle_index']} "
+            f"feature={recovery_info['feature_id']} "
+            f"original_start={recovery_info['started_at']}"
+        )
+        print(f"Recovering from crash at cycle {recovery_info['cycle_index']} (feature: {recovery_info['feature_id']})")
+
+    # Determine starting cycle (resume from crash or use next available)
+    cycle = get_next_cycle_index(root)
+    append_harness_log(root, f"harness starting from cycle {cycle}")
+
     while cycle <= limit:
         if _shutdown_requested:
             append_harness_log(root, "harness stopped by signal")
             print("Graceful shutdown complete.")
             return 0
+
+        health_monitor.update_heartbeat(source="cycle_start")
         did_work = run_cycle(root, cfg, cycle)
+        health_status = health_monitor.analyze_harness_log(
+            log_path=root / RUNTIME_DIR / "harness.log",
+            stalled_after_seconds=int(cfg.get("health_stalled_after_seconds", 600)),
+            failure_alert_threshold=int(cfg.get("health_failure_alert_threshold", 3)),
+        )
+        if health_status.get("alerts"):
+            append_harness_log(
+                root,
+                "health alerts: " + " | ".join(health_status.get("alerts", [])),
+            )
         if not did_work:
             break
         cycle += 1
