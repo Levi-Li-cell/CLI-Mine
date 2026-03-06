@@ -16,6 +16,7 @@ CONFIG_FILE = ROOT / "config.json"
 LOG_FILE = ROOT / ".agent" / "runtime" / "autopilot.log"
 DEBUG_LOG_FILE = ROOT / ".agent" / "runtime" / "autopilot.debug.log"
 STATE_FILE = ROOT / ".agent" / "runtime" / "autopilot_state.json"
+OBSERVABILITY_STATUS_FILE = ROOT / ".agent" / "runtime" / "cost_latency_status.json"
 
 
 def now_iso() -> str:
@@ -187,6 +188,75 @@ def run_debug_tests(root: Path, commands: List[str], timeout_seconds: int = 600)
     return all_passed
 
 
+def run_release_gate(root: Path, cfg: Dict[str, Any]) -> bool:
+    commands = cfg.get(
+        "autopilot_release_gate_commands",
+        [
+            "python verify_m5_001.py",
+            "python verify_m5_002.py",
+            "python verify_m5_003.py",
+            "python verify_m5_004.py",
+        ],
+    )
+    timeout_seconds = int(cfg.get("autopilot_release_gate_timeout_seconds", 1200))
+    if not commands:
+        log("release gate skipped: no commands configured")
+        return True
+
+    log(f"release gate start count={len(commands)}")
+    all_passed = True
+    for command in commands:
+        debug_log(f"release gate command start: {command}")
+        try:
+            cp = subprocess.run(
+                command,
+                cwd=str(root),
+                shell=True,
+                text=True,
+                capture_output=True,
+                timeout=max(1, timeout_seconds),
+                encoding="utf-8",
+                errors="replace",
+            )
+            debug_log(f"release gate rc={cp.returncode}: {command}")
+            if cp.stdout:
+                debug_log(cp.stdout.strip())
+            if cp.stderr:
+                debug_log(cp.stderr.strip())
+            if cp.returncode != 0:
+                all_passed = False
+                log(f"release gate failed rc={cp.returncode}: {command}")
+        except Exception as e:
+            all_passed = False
+            log(f"release gate exception: {command} | {e}")
+    log("release gate passed" if all_passed else "release gate failed")
+    return all_passed
+
+
+def check_budget_guard(root: Path, cfg: Dict[str, Any]) -> bool:
+    hard_limit = float(cfg.get("autopilot_budget_hard_limit", 0.0))
+    if hard_limit <= 0:
+        return True
+
+    status_path = root / cfg.get("observability_status_file", str(OBSERVABILITY_STATUS_FILE.relative_to(ROOT)))
+    if not status_path.exists():
+        log(f"budget guard skipped: status file missing path={status_path}")
+        return True
+
+    try:
+        data = json.loads(status_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        log(f"budget guard skipped: invalid status file error={e}")
+        return True
+
+    metrics = data.get("metrics", {}) if isinstance(data, dict) else {}
+    total_cost = float(metrics.get("total_cost", 0.0)) if isinstance(metrics, dict) else 0.0
+    if total_cost > hard_limit:
+        log(f"budget guard blocked run total_cost={total_cost} hard_limit={hard_limit}")
+        return False
+    return True
+
+
 def _run_git(args: List[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git"] + args,
@@ -316,6 +386,30 @@ def main() -> int:
                 time.sleep(sleep_seconds)
             continue
 
+        if not run_release_gate(ROOT, cfg):
+            record_failure(state, "release_gate_failed")
+            log("skip harness launch because release gate failed")
+            if args.once:
+                return 1
+            if state["consecutive_failures"] >= max_consecutive_failures:
+                log(f"circuit breaker engaged pause={pause_seconds}s")
+                time.sleep(max(1, pause_seconds))
+            else:
+                time.sleep(sleep_seconds)
+            continue
+
+        if not check_budget_guard(ROOT, cfg):
+            record_failure(state, "budget_guard_blocked")
+            log("skip harness launch because budget guard blocked run")
+            if args.once:
+                return 1
+            if state["consecutive_failures"] >= max_consecutive_failures:
+                log(f"circuit breaker engaged pause={pause_seconds}s")
+                time.sleep(max(1, pause_seconds))
+            else:
+                time.sleep(sleep_seconds)
+            continue
+
         cmd = [sys.executable, "harness.py", "--bootstrap"]
         if args.once:
             if args.cycles > 0:
@@ -336,6 +430,12 @@ def main() -> int:
         if not run_debug_tests(ROOT, debug_commands, timeout_seconds=int(cfg.get("autopilot_debug_timeout_seconds", 600))):
             record_failure(state, "post_run_debug_failed")
             log("post-run debug tests failed")
+            if args.once:
+                return 1
+
+        if not check_budget_guard(ROOT, cfg):
+            record_failure(state, "post_run_budget_guard_blocked")
+            log("post-run budget guard blocked run")
             if args.once:
                 return 1
 

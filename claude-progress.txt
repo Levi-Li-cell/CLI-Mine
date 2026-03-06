@@ -39,6 +39,48 @@ Reviewed sources and extracted practical architecture requirements:
 
 ---
 
+## Session: AUTOPILOT HARDENING (2026-03-06)
+
+### Objective
+- Strengthen autonomous execution safety by adding pre-run release gate checks and budget hard-stop guardrails.
+
+### Changes made
+- Updated `autopilot.py`:
+  - Added `run_release_gate()` to execute configurable release-gate verification commands before launching harness.
+  - Added `check_budget_guard()` to block runs when observability-reported `total_cost` exceeds configured hard limit.
+  - Integrated both checks into control flow before harness launch, and re-validated budget guard post-run.
+- Updated `config.example.json` with new keys:
+  - `autopilot_release_gate_timeout_seconds`
+  - `autopilot_release_gate_commands`
+  - `autopilot_budget_hard_limit`
+  - `observability_status_file`
+- Added `verify_autopilot_release_gate.py` to verify release gate pass/fail behavior and budget guard allow/block behavior.
+
+### Verification run
+```
+$ python verify_autopilot_guard.py
+=== verify_autopilot_guard ===
+[PASS] initial state is empty
+[PASS] record_failure increments state
+[PASS] state persists across writes
+[PASS] reset_failure_state clears counters
+=== verify_autopilot_guard PASSED ===
+
+$ python verify_autopilot_release_gate.py
+=== verify_autopilot_release_gate ===
+[PASS] release gate passes on successful commands
+[PASS] release gate fails on failing command
+[PASS] budget guard passes when cost is below limit
+[PASS] budget guard blocks when cost exceeds limit
+=== verify_autopilot_release_gate PASSED ===
+```
+
+### Risks/follow-ups
+- Gate command list should be tuned per deployment stage (dev/staging/prod) to balance speed and confidence.
+- Hard budget limit defaults to disabled (`0`) and should be explicitly configured for production protection.
+
+---
+
 ## Session: M3-004 (2026-03-06)
 
 ### Feature completed

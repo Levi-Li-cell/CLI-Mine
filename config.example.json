@@ -25,6 +25,15 @@
     "python verify_m3_002.py",
     "python verify_m4_004.py"
   ],
+  "autopilot_release_gate_timeout_seconds": 1200,
+  "autopilot_release_gate_commands": [
+    "python verify_m5_001.py",
+    "python verify_m5_002.py",
+    "python verify_m5_003.py",
+    "python verify_m5_004.py"
+  ],
+  "autopilot_budget_hard_limit": 0,
+  "observability_status_file": ".agent/runtime/cost_latency_status.json",
   "autopilot_git_auto_commit": true,
   "autopilot_git_auto_push": true,
   "autopilot_git_commit_prefix": "chore(autopilot)",
