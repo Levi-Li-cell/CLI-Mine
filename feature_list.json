@@ -282,8 +282,8 @@
       "No unrecovered crash",
       "Generate soak report"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added soak/ package with SoakAnalyzer that parses harness logs, computes observed soak duration, cycle/failure counts, crash-recovery signals, and unrecovered crash status from cycle_state.json, then persists a structured soak report to .agent/runtime/soak_report.json. Added verify_m5_003.py covering 72h duration detection, cycle/failure metric extraction, unrecovered crash criteria failure, and report persistence." 
   },
   {
     "id": "M5-004",
