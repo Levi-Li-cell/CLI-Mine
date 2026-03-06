@@ -191,8 +191,8 @@
       "Support artifact preview",
       "Support export/download"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added artifacts/ package with ArtifactPreview model and viewer utilities for language detection, ANSI syntax highlighting, binary-safe preview, and artifact export/download copy support. Implemented detect_language(), highlight_code(), preview_artifact(), and export_artifact() in artifacts/viewer.py. Added verify_m3_004.py covering language detection, code preview/highlight path, binary artifact preview path, and export validation."
   },
   {
     "id": "M4-001",
@@ -295,7 +295,7 @@
       "Document rollback criteria",
       "Test rollback once"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added deployment_runbook.md documenting deployment steps, rollback criteria, rollback procedure, and tested validation workflow. Added ops/rollback.py with known-good commit selection, rollback plan generation, runtime cleanup target definitions, and post-rollback command checklist. Added verify_m5_004.py validating runbook sections, rollback plan integrity, cleanup targets, and rollback test marker/command presence."
   }
 ]

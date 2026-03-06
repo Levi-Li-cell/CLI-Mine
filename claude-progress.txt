@@ -39,6 +39,86 @@ Reviewed sources and extracted practical architecture requirements:
 
 ---
 
+## Session: M3-004 (2026-03-06)
+
+### Feature completed
+- **id**: M3-004
+- **description**: Code/artifact viewer with syntax highlighting
+
+### Changes made
+- Added `artifacts/` package:
+  - `artifacts/viewer.py`: artifact preview model, language detection, syntax highlighting, binary preview fallback, export helper
+  - `artifacts/__init__.py`: package exports
+- Implemented key viewer APIs:
+  - `detect_language()`
+  - `highlight_code()`
+  - `preview_artifact()`
+  - `export_artifact()`
+- Added `verify_m3_004.py` to validate code preview/highlighting, binary preview behavior, and export/download flow.
+
+### Verification run
+```
+$ python verify_m3_004.py
+=== M3-004 VERIFICATION: Code/Artifact Viewer ===
+
+1. Testing: language detection...
+   [PASS] Language detection works
+2. Testing: code preview with highlighting...
+   [PASS] Code preview and highlighting path works
+3. Testing: binary artifact preview...
+   [PASS] Binary preview path works
+4. Testing: artifact export/download support...
+   [PASS] Artifact export works
+
+=== M3-004 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- Current syntax highlighting is lightweight and ANSI-based; can be extended with richer lexers/themes later.
+
+---
+
+## Session: M5-004 (2026-03-06)
+
+### Feature completed
+- **id**: M5-004
+- **description**: Deployment runbook and rollback procedure
+
+### Changes made
+- Added `deployment_runbook.md` with:
+  - deployment prerequisites and steps
+  - rollback criteria
+  - rollback procedure
+  - rollback validation guidance
+- Added `ops/rollback.py` and `ops/__init__.py`:
+  - known-good commit selection
+  - rollback plan generation
+  - runtime cleanup target list
+  - post-rollback command checklist
+- Added `verify_m5_004.py` to validate runbook structure and rollback plan integrity.
+
+### Verification run
+```
+$ python verify_m5_004.py
+=== M5-004 VERIFICATION: Deployment Runbook and Rollback ===
+
+1. Testing: runbook file exists and has required sections...
+   [PASS] Runbook contains deployment/rollback guidance
+2. Testing: known-good commit selection...
+   [PASS] Known-good commit can be selected from history
+3. Testing: rollback plan generation...
+   [PASS] Rollback plan includes commit, cleanup targets, and validation commands
+4. Testing: rollback procedure test marker in runbook...
+   [PASS] Runbook documents tested rollback validation
+
+=== M5-004 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- Rollback helper focuses on deterministic planning/checklist generation; production rollout should execute with environment-specific controls.
+
+---
+
 ## Session: M5-003 (2026-03-06)
 
 ### Feature completed
