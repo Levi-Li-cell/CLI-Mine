@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from .models import Message, MessageRole, Session
+from .models import Message, MessageRole, MessageStatus, Session
 from .persistence import SessionPersistence
 
 
@@ -286,6 +286,76 @@ class SessionManager:
             messages = messages[-limit:]
 
         return messages
+
+    def get_message(self, message_id: str, session: Optional[Session] = None) -> Optional[Message]:
+        """Get a single message by ID from a session."""
+        target = session or self._current_session
+        if not target:
+            return None
+        return target.get_message(message_id)
+
+    def append_to_message(
+        self,
+        message_id: str,
+        content_chunk: str,
+        session: Optional[Session] = None,
+    ) -> bool:
+        """Append streaming content to an existing message."""
+        target = session or self._current_session
+        if not target:
+            return False
+
+        message = target.get_message(message_id)
+        if not message:
+            return False
+
+        message.content += content_chunk
+        target.updated_at = datetime.now().isoformat(timespec="microseconds")
+        if self.auto_save:
+            self.persistence.save(target)
+        return True
+
+    def update_message_status(
+        self,
+        message_id: str,
+        status: MessageStatus,
+        session: Optional[Session] = None,
+        metadata_update: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Update the status of a message and optionally merge metadata."""
+        target = session or self._current_session
+        if not target:
+            return False
+
+        message = target.get_message(message_id)
+        if not message:
+            return False
+
+        message.status = status
+        if metadata_update:
+            message.metadata.update(metadata_update)
+        target.updated_at = datetime.now().isoformat(timespec="microseconds")
+        if self.auto_save:
+            self.persistence.save(target)
+        return True
+
+    def mark_stream_interrupted(self, session: Optional[Session] = None) -> int:
+        """Mark all streaming assistant messages in a session as interrupted."""
+        target = session or self._current_session
+        if not target:
+            return 0
+
+        changed = 0
+        for message in target.messages:
+            if message.role == MessageRole.ASSISTANT and message.status == MessageStatus.STREAMING:
+                message.status = MessageStatus.INTERRUPTED
+                changed += 1
+
+        if changed > 0:
+            target.updated_at = datetime.now().isoformat(timespec="microseconds")
+            if self.auto_save:
+                self.persistence.save(target)
+        return changed
 
     def get_message_history(
         self,

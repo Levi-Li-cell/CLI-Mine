@@ -152,8 +152,8 @@
       "Display token streaming in real time",
       "Handle interruption and retry"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added streaming conversation support via sessions/streaming.py with SessionStreamer and StreamState for assistant token streaming, interruption, and retry flows. Extended SessionManager with get_message(), append_to_message(), update_message_status(), and mark_stream_interrupted() for status-driven message lifecycle updates. Added verify_m3_001.py covering stream start (STREAMING), incremental token append, finalize (COMPLETE), interruption (INTERRUPTED with reason), retry from interrupted messages, and generator-based chunk streaming."
   },
   {
     "id": "M3-002",
