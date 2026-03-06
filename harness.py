@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Audit logging with trace IDs (M2-004)
 from audit import AuditLogger, TraceContext, AuditReplay, create_default_audit_logger
 from health import HealthMonitor
+from observability import CostLatencyMonitor
 
 _shutdown_requested = False
 
@@ -33,6 +34,7 @@ REACT_TRACE_FILE = Path(".agent/runtime/react_traces.jsonl")
 CYCLE_STATE_FILE = Path(".agent/runtime/cycle_state.json")
 AUDIT_LOG_FILE = Path(".agent/runtime/audit.jsonl")  # M2-004: End-to-end audit logging
 HEALTH_STATUS_FILE = Path(".agent/runtime/health_status.json")
+OBSERVABILITY_STATUS_FILE = Path(".agent/runtime/cost_latency_status.json")
 
 
 def extract_react_traces(text: str) -> List[Dict[str, Any]]:
@@ -660,6 +662,12 @@ def main() -> int:
 
     health_monitor = HealthMonitor(root / cfg.get("health_status_file", str(HEALTH_STATUS_FILE)))
     health_monitor.update_heartbeat(source="harness_start")
+    cost_latency_monitor = CostLatencyMonitor(
+        status_file=root / cfg.get("observability_status_file", str(OBSERVABILITY_STATUS_FILE)),
+        token_cost_per_1k=float(cfg.get("observability_token_cost_per_1k", 0.01)),
+        tool_call_cost=float(cfg.get("observability_tool_call_cost", 0.0)),
+        budget_threshold=float(cfg.get("observability_budget_threshold", 50.0)),
+    )
 
     if args.bootstrap and should_run_initializer(root, cfg):
         rc = run_initializer(root, cfg)
@@ -708,6 +716,12 @@ def main() -> int:
             append_harness_log(
                 root,
                 "health alerts: " + " | ".join(health_status.get("alerts", [])),
+            )
+        observability_status = cost_latency_monitor.analyze_audit_log(root / AUDIT_LOG_FILE)
+        if observability_status.get("alerts"):
+            append_harness_log(
+                root,
+                "observability alerts: " + " | ".join(observability_status.get("alerts", [])),
             )
         if not did_work:
             break

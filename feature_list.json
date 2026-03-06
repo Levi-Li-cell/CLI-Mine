@@ -269,8 +269,8 @@
       "Track p50/p95 latency",
       "Set budget threshold alerts"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added observability/ package with CostLatencyMonitor that reads audit JSONL events and computes token/tool cost metrics plus latency percentiles (p50/p95), then writes status to .agent/runtime/cost_latency_status.json. Integrated monitor into harness.py loop to update observability status each cycle and append budget-threshold alerts to harness log. Added verify_m5_002.py covering token/tool cost calculation, p50/p95 latency metrics, budget alert triggering, and status file persistence."
   },
   {
     "id": "M5-003",

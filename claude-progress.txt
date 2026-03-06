@@ -39,6 +39,47 @@ Reviewed sources and extracted practical architecture requirements:
 
 ---
 
+## Session: M5-002 (2026-03-06)
+
+### Feature completed
+- **id**: M5-002
+- **description**: Cost and latency observability
+
+### Changes made
+- Added `observability/` package with `CostLatencyMonitor`:
+  - Parses audit JSONL events
+  - Computes token/tool usage cost metrics
+  - Computes latency percentiles (`p50`, `p95`)
+  - Triggers budget threshold alerts
+  - Persists status to `.agent/runtime/cost_latency_status.json`
+- Integrated observability monitor into `harness.py` cycle loop:
+  - analyze audit log after each cycle
+  - append observability alerts into harness log when threshold is exceeded
+- Added `verify_m5_002.py` to validate cost calculation, latency percentiles, alerting, and status-file persistence.
+
+### Verification run
+```
+$ python verify_m5_002.py
+=== M5-002 VERIFICATION: Cost and Latency Observability ===
+
+1. Testing: token/tool cost metrics...
+   [PASS] Cost metrics computed correctly
+2. Testing: p50/p95 latency metrics...
+   [PASS] Latency p50/p95 metrics computed
+3. Testing: budget threshold alerting...
+   [PASS] Budget threshold alert is triggered
+4. Testing: status file is written atomically...
+   [PASS] Status file persisted with observability metrics
+
+=== M5-002 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- M5-002 baseline observability is complete for cost/latency and budget threshold monitoring.
+- Cost model currently uses configurable heuristics; can be replaced with provider-billed pricing tables later.
+
+---
+
 ## Session: M5-001 (2026-03-06)
 
 ### Feature completed
