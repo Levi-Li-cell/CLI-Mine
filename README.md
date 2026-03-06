@@ -30,6 +30,10 @@ python harness.py --bootstrap
 python harness.py --run-forever
 ```
 
+On first bootstrap, if initialization artifacts already exist (`init.sh`,
+`feature_list.json`, `claude-progress.txt`), the harness will skip re-running
+initializer and directly mark bootstrap complete.
+
 ## How it works
 
 Each cycle does:
@@ -66,6 +70,19 @@ Set `agent_command_template` in `config.json`, for example:
   - `python tools/run_agent.py --prompt-file "{prompt_file}"`
 
 The template must include `{prompt_file}`.
+
+Important settings:
+
+- `agent_timeout_seconds`: max seconds per agent run (default `1800`)
+- `bootstrap_allow_existing_artifacts`: if `true`, bootstrap succeeds when
+  core artifacts already exist
+- `allow_skip_on_stuck`: if `true`, repeatedly failing features are auto-skipped
+- `max_attempts_per_feature`: failed-attempt threshold before auto-skip
+
+When a feature is auto-skipped, harness writes records to:
+
+- `.agent/runtime/feature_attempt_state.json`
+- `.agent/runtime/blocked_features.jsonl`
 
 ## Suggested production setup
 
