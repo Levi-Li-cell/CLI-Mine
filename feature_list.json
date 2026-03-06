@@ -256,8 +256,8 @@
       "Run automated evals per release",
       "Track pass rate trends"
     ],
-    "passes": false,
-    "evidence": ""
+    "passes": true,
+    "evidence": "Verified 2026-03-06: Added regression/ package with benchmark models (BenchmarkTask, EvalCaseResult, EvalRunResult), persistence layer (benchmark_tasks.json + runs.jsonl), and RegressionEvaluator runner that executes benchmark commands per release and stores pass-rate summaries. Added default core user journey benchmarks and trend reporting via get_pass_rate_trend(). Added verify_m5_001.py covering task definition persistence, automated eval execution, pass/fail aggregation, run history persistence, and trend delta tracking across multiple runs."
   },
   {
     "id": "M5-002",

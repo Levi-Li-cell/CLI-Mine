@@ -39,6 +39,44 @@ Reviewed sources and extracted practical architecture requirements:
 
 ---
 
+## Session: M5-001 (2026-03-06)
+
+### Feature completed
+- **id**: M5-001
+- **description**: Regression eval suite for core user journeys
+
+### Changes made
+- Added `regression/` package:
+  - `regression/models.py`: `BenchmarkTask`, `EvalCaseResult`, `EvalRunResult`
+  - `regression/persistence.py`: benchmark task and run-history persistence (`benchmark_tasks.json`, `runs.jsonl`)
+  - `regression/runner.py`: `RegressionEvaluator` with release eval execution and pass-rate trend tracking
+  - `regression/__init__.py`: package exports
+- Added default benchmark tasks for core journeys (bootstrap/cycle, sessions restore, streaming, health checks)
+- Added `verify_m5_001.py` to validate benchmark definitions, automated eval execution, and pass-rate trend computation.
+
+### Verification run
+```
+$ python verify_m5_001.py
+=== M5-001 VERIFICATION: Regression Eval Suite ===
+
+1. Testing: benchmark task definitions persist...
+   [PASS] Benchmark tasks save/load
+2. Testing: release eval run executes cases...
+   [PASS] Release eval executes and aggregates correctly
+3. Testing: pass rate trend tracking...
+   [PASS] Pass rate trend is recorded across runs
+4. Testing: runs history persists to JSONL...
+   [PASS] Run history persisted with summary metrics
+
+=== M5-001 VERIFICATION PASSED ===
+```
+
+### Risks/follow-ups
+- M5-001 baseline eval infrastructure is complete and supports release-by-release quality tracking.
+- Future extension can connect the runner to CI release gates and richer benchmark catalogs.
+
+---
+
 ## Session: M3-001 (2026-03-06)
 
 ### Feature completed
